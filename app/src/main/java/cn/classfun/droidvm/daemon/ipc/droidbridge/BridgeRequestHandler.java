@@ -62,8 +62,13 @@ public final class BridgeRequestHandler extends RequestHandler {
         if (!bridgeRequest.has("id"))
             bridgeRequest.put("id", request.getId().toString());
 
-        var bridgeResponse = DroidBridgeTransport.request(
-            (int) cidLong, DroidBridgeConfig.AGENT_PORT, bridgeRequest);
+        JSONObject bridgeResponse;
+        try {
+            bridgeResponse = DroidBridgeTransport.request(
+                (int) cidLong, DroidBridgeConfig.AGENT_PORT, bridgeRequest);
+        } catch (java.io.IOException e) {
+            throw new RequestException("DroidBridge agent is unavailable");
+        }
 
         request.res().put("bridge_response", bridgeResponse);
         request.res().put("vsock_cid", cidLong);
