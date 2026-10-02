@@ -25,6 +25,10 @@ DroidVM already has the pieces needed for the safer baseline:
 - The app ships a known-good guest `vmlinuz` + `initramfs`; upstream issue #12 reports OnePlus 13 booting after switching to the APK-provided pair.
 - MTHP and huge-page reserve handling are already present, but the reserve kernel module must NOT be added during the first baseline run.
 
+## CI baseline
+
+GitHub Actions has been enabled on this fork. This branch is expected to build an unmodified DroidVM baseline before any PJZ110-specific runtime changes are introduced.
+
 ## First baseline test
 
 Do not load `gh_hugepage_reserve` yet.
