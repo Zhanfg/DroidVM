@@ -120,11 +120,15 @@ public final class CrosvmBackendInstance extends VMBackendInstance {
         // One text console per app-console serial port. Registered here, like the old fixed
         // "uart" stream, so the stream list is stable across VM restarts.
         VMSerialConfig.ensureDefaults(config.item);
+        DroidBridgeConfig.prepareSessionTransport(config.item);
         for (var port : VMSerialConfig.listOf(config.item)) {
             if (port.getBackend() != SerialBackend.APP_CONSOLE) continue;
             var name = port.getStreamName();
             if (serialStreams.containsKey(name)) continue;
             var stream = new FDPipeConsoleStream(config, name, -1, -1);
+            if (DroidBridgeConfig.isSerialFallbackActive(config.item)
+                && DroidBridgeConfig.SERIAL_STREAM.equals(name))
+                stream.setPersistentLogEnabled(false);
             serialStreams.put(name, stream);
             addStream(stream);
         }
