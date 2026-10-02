@@ -2,7 +2,7 @@
 // Copyright DroidVM contributors
 package cn.classfun.droidvm.linuxapps;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.UTF_8;\nimport static cn.classfun.droidvm.lib.utils.StringUtils.fmt;
 
 import androidx.annotation.NonNull;
 
@@ -103,7 +103,7 @@ public final class LinuxAppDescriptor {
     @NonNull
     private static String bounded(@NonNull String value, @NonNull String field) {
         if (value.length() > MAX_TEXT)
-            throw new IllegalArgumentException(field + " is too long");
+            throw new IllegalArgumentException(fmt("%s is too long", field));
         return value;
     }
 }
