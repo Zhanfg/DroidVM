@@ -846,6 +846,7 @@
     <string name="agent_operation_partial">操作已完成，但部分步驟失敗：\n%1$s</string>
     <string name="agent_operation_action_password">變更密碼</string>
     <string name="agent_operation_action_autogrow">檔案系統擴充</string>
+    <string name="agent_operation_action_droidbridge">安裝 DroidBridge</string>
     <string name="agent_operation_failed">操作失敗（退出碼 %1$d）。</string>
     <string name="agent_operation_failed_detail">操作失敗：%1$s</string>
     <string name="agent_operation_prepare_failed">準備代理虛擬機器失敗。</string>
@@ -878,6 +879,11 @@
     <string name="agent_operation_error_filesystem_mount">無法掛載檔案系統以進行擴充。</string>
     <string name="agent_operation_error_filesystem_grow">分割區已擴大，但檔案系統擴充失敗。</string>
     <string name="agent_operation_error_filesystem_unmount">檔案系統已擴充，但無法安全卸載。</string>
+    <string name="agent_operation_error_droidbridge_root">找不到 Linux 根檔案系統。</string>
+    <string name="agent_operation_error_droidbridge_mount">救援虛擬機器無法掛載 DroidBridge 載荷。</string>
+    <string name="agent_operation_error_droidbridge_missing">此建置中缺少 DroidBridge 客體代理。</string>
+    <string name="agent_operation_error_droidbridge_install">無法安裝 DroidBridge 客體代理。</string>
+    <string name="agent_operation_error_droidbridge_init">此 Linux 映像使用的初始化系統目前尚未受 DroidBridge 支援。</string>
     <string name="agent_operation_error_unknown">救援錯誤：%1$s</string>
 
     <string name="disk_resize">調整大小</string>
