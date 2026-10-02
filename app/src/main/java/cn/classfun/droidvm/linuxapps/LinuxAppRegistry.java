@@ -139,6 +139,6 @@ public final class LinuxAppRegistry {
 
     @NonNull
     private static String key(@NonNull String vmId, @NonNull String appId) {
-        return vmId + "\0" + appId;
+        return fmt("%s\\0%s", vmId, appId);
     }
 }
