@@ -207,6 +207,9 @@
     <string name="create_vm_rng">مولّد الأرقام العشوائية (RNG)</string>
     <string name="create_vm_smt">تعدد خيوط المعالجة المتزامن (SMT)</string>
     <string name="create_vm_droidbridge">DroidBridge (تطبيقات Linux)</string>
+    <string name="droidbridge_provision_action">تثبيت / إصلاح DroidBridge</string>
+    <string name="droidbridge_provision_success">DroidBridge جاهز لتطبيقات Linux.</string>
+    <string name="droidbridge_provision_failed">تعذر إعداد DroidBridge: %1$s</string>
     <string name="create_vm_debug">تتبع تصحيح الأخطاء (Debug trace)</string>
     <string name="create_vm_protected_vm">جهاز افتراضي محمي (Protected VM)</string>
     <string name="create_vm_swiotlb_hint">حجم SWIOTLB (للأجهزة الافتراضية المحمية)</string>
