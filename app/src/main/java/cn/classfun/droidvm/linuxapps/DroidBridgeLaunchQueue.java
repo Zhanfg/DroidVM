@@ -67,4 +67,33 @@ public final class DroidBridgeLaunchQueue {
             throw new IllegalStateException("Failed to queue Linux app launch", e);
         }
     }
+
+    public static synchronized void acknowledge(
+        @NonNull Context context,
+        @NonNull String launchId
+    ) {
+        try {
+            var file = new File(context.getFilesDir(), FILE_NAME);
+            if (!file.isFile()) return;
+            var root = new JSONObject(
+                Files.readString(file.toPath(), StandardCharsets.UTF_8));
+            var arr = root.optJSONArray("pending");
+            if (arr == null) return;
+
+            var kept = new JSONArray();
+            for (int i = 0; i < arr.length(); i++) {
+                var item = arr.optJSONObject(i);
+                if (item == null || !launchId.equals(item.optString("launch_id", "")))
+                    kept.put(arr.get(i));
+            }
+            root.put("pending", kept);
+            try (var os = new FileOutputStream(file, false)) {
+                os.write(root.toString().getBytes(StandardCharsets.UTF_8));
+                os.flush();
+                os.getFD().sync();
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to acknowledge Linux app launch", e);
+        }
+    }
 }
