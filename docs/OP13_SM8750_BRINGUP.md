@@ -171,3 +171,20 @@ Next staged tests:
 1. RNG only;
 2. then virtio-gpu with SimpleFB retained as fallback;
 3. only after virtio-gpu is stable, test accelerated renderers one at a time.
+
+
+## Validated RNG stage (PJZ110)
+
+Validated on 2026-10-02 with the working Gunyah + network + SimpleFB baseline and virtio RNG enabled.
+
+Observed result:
+
+- guest booted successfully;
+- Alpine userspace and root shell remained usable;
+- network remained functional;
+- SimpleFB display remained functional;
+- host Android remained responsive.
+
+This validates virtio RNG on the PJZ110 Gunyah pseudo-unprotected baseline.
+
+Next staged test: enable basic virtio-gpu while keeping SimpleFB enabled as a fallback, with accelerated renderers still disabled.
