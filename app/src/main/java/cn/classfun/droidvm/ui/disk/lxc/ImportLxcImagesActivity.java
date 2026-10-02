@@ -298,6 +298,7 @@ public class ImportLxcImagesActivity extends AppCompatActivity {
                     // A cancelled or crashed rescue VM says nothing about its actions.
                     linuxIncompleteSteps.add(PasswordAction.TYPE);
                     linuxIncompleteSteps.add(AutoGrowAction.TYPE);
+                    linuxIncompleteSteps.add(DroidBridgeInstallAction.TYPE);
                 }
                 createPendingLinuxVm();
             });
@@ -1828,6 +1829,7 @@ public class ImportLxcImagesActivity extends AppCompatActivity {
             Log.e(TAG, "Failed to start Linux VM maintenance", e);
             linuxIncompleteSteps.add(PasswordAction.TYPE);
             linuxIncompleteSteps.add(AutoGrowAction.TYPE);
+            linuxIncompleteSteps.add(DroidBridgeInstallAction.TYPE);
             createPendingLinuxVm();
         }
     }
