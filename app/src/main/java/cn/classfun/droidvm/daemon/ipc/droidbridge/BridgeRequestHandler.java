@@ -13,6 +13,7 @@ import org.json.JSONObject;
 import java.util.Set;
 
 import cn.classfun.droidvm.daemon.droidbridge.DroidBridgeTransport;
+import cn.classfun.droidvm.daemon.droidbridge.DroidBridgeSerialTransport;
 import cn.classfun.droidvm.daemon.server.ClientRequest;
 import cn.classfun.droidvm.daemon.server.RequestException;
 import cn.classfun.droidvm.daemon.server.RequestHandler;
@@ -52,12 +53,6 @@ public final class BridgeRequestHandler extends RequestHandler {
             throw new RequestException(fmt("VM is not running: %s", vmId));
         if (!DroidBridgeConfig.isEnabled(inst.item))
             throw new RequestException("DroidBridge is not enabled for this VM");
-        if (!DroidBridgeConfig.hostVsockAvailable())
-            throw new RequestException("Host vhost-vsock is unavailable");
-
-        long cidLong = DroidBridgeConfig.cidFor(inst.getId());
-        if (cidLong > Integer.MAX_VALUE)
-            throw new RequestException("DroidBridge CID is out of host range");
 
         // Use a copy so the outer IPC request remains immutable to handlers/logging.
         var bridgeRequest = new JSONObject(payload.toString());
@@ -65,14 +60,30 @@ public final class BridgeRequestHandler extends RequestHandler {
             bridgeRequest.put("id", request.getId().toString());
 
         JSONObject bridgeResponse;
-        try {
-            bridgeResponse = DroidBridgeTransport.request(
-                (int) cidLong, DroidBridgeConfig.AGENT_PORT, bridgeRequest);
-        } catch (java.io.IOException e) {
-            throw new RequestException("DroidBridge agent is unavailable");
+        if (DroidBridgeConfig.hostVsockAvailable()) {
+            long cidLong = DroidBridgeConfig.cidFor(inst.getId());
+            if (cidLong > Integer.MAX_VALUE)
+                throw new RequestException("DroidBridge CID is out of host range");
+            try {
+                bridgeResponse = DroidBridgeTransport.request(
+                    (int) cidLong, DroidBridgeConfig.AGENT_PORT, bridgeRequest);
+            } catch (java.io.IOException e) {
+                throw new RequestException("DroidBridge agent is unavailable");
+            }
+            request.res().put("transport", "vsock");
+            request.res().put("vsock_cid", cidLong);
+        } else if (DroidBridgeConfig.isSerialFallbackActive(inst.item)) {
+            try {
+                bridgeResponse = DroidBridgeSerialTransport.request(inst, bridgeRequest);
+            } catch (Exception e) {
+                throw new RequestException("DroidBridge serial agent is unavailable");
+            }
+            request.res().put("transport", "serial");
+        } else {
+            throw new RequestException(
+                "No DroidBridge transport is available; Serial 4 is already in use");
         }
 
         request.res().put("bridge_response", bridgeResponse);
-        request.res().put("vsock_cid", cidLong);
     }
 }
