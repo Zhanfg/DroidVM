@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright DroidVM contributors
-package cn.classfun.droidvm.linuxapps;\n\nimport static cn.classfun.droidvm.lib.utils.StringUtils.fmt;
+package cn.classfun.droidvm.linuxapps;
+
+import static cn.classfun.droidvm.lib.utils.StringUtils.fmt;
 
 import android.os.Bundle;
 import android.os.Handler;
@@ -33,16 +35,18 @@ import cn.classfun.droidvm.ui.vm.VMActions;
 /**
  * Android task representing one Linux application launch.
  *
- * <p>M1/M2 owns the lifecycle and safe VM wake path. The rendering surface and live DroidBridge
- * transport are layered into this Activity next; keeping this Activity as the stable launcher
- * target means pinned home-screen icons will not need to be recreated when the renderer evolves.</p>
+ * <p>The Activity is intentionally the stable launcher target. The current implementation owns
+ * VM wake and live DroidBridge launch; the window bridge can replace the placeholder content
+ * later without invalidating already-pinned launcher shortcuts.</p>
  */
 public final class LinuxAppLaunchActivity extends AppCompatActivity implements ForegroundCallback {
     public static final String EXTRA_VM_ID = "droidterminal.vm_id";
     public static final String EXTRA_APP_ID = "droidterminal.app_id";
 
     private static final int MAX_DAEMON_QUERY_RETRIES = 8;
+    private static final int MAX_BRIDGE_RETRIES = 12;
     private static final long RETRY_DELAY_MS = 750;
+    private static final long BRIDGE_RETRY_DELAY_MS = 500;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean wantOpenConsole = new AtomicBoolean(false);
@@ -55,6 +59,7 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
     private VMConfig vm;
     private UUID vmId;
     private boolean launchQueued = false;
+    private String queuedLaunchId = null;
 
     @Override
     protected void onCreate(@Nullable Bundle state) {
@@ -117,12 +122,13 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
                 vmId = UUID.fromString(rawVmId);
                 app = new LinuxAppRegistry(this).find(rawVmId, appId);
                 var store = new VMStore();
-                if (!store.load(this)) throw new IllegalStateException("VM registry is unavailable");
+                if (!store.load(this))
+                    throw new IllegalStateException("VM registry is unavailable");
                 vm = store.findById(vmId);
-                if (app == null) throw new IllegalStateException(
-                    "This Linux application is no longer installed");
-                if (vm == null) throw new IllegalStateException(
-                    "The Linux environment no longer exists");
+                if (app == null)
+                    throw new IllegalStateException("This Linux application is no longer installed");
+                if (vm == null)
+                    throw new IllegalStateException("The Linux environment no longer exists");
                 mainHandler.post(() -> {
                     setTitle(app.name);
                     showStatus(fmt("Waking %s...", app.name), true);
@@ -195,8 +201,6 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
             case STOPPED:
             default:
                 showStatus("Starting Linux environment...", true);
-                // Reuse the mature preflight chain: disk-safety, guest protection, module, lend
-                // mode and huge-page checks all run before the daemon sees the VM.
                 VMActions.createAndStart(
                     vm, mainHandler, UIContext.fromActivity(this),
                     wantOpenConsole, null
@@ -225,18 +229,42 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
         if (launchQueued || app == null) return;
         launchQueued = true;
         try {
-            var launchId = DroidBridgeLaunchQueue.enqueue(this, app);
-            // M2 replaces this queue-only handoff with a live vsock request. The Activity remains
-            // open because it will become the app's actual Android surface in M4.
-            showStatus(
-                fmt("%s is queued.
-DroidBridge transport is the next implementation step.
-Launch ID: %s", app.name, launchId),
-                false
-            );
+            queuedLaunchId = DroidBridgeLaunchQueue.enqueue(this, app);
+            attemptBridgeLaunch(0);
         } catch (Exception e) {
             fail("Unable to queue Linux application launch.");
         }
+    }
+
+    private void attemptBridgeLaunch(int attempt) {
+        if (app == null || isFinishing()) return;
+        showStatus(fmt("Starting %s...", app.name), true);
+        DroidBridgeClient.launchApp(
+            app,
+            (launchId, pid) -> mainHandler.post(() -> {
+                if (queuedLaunchId != null) {
+                    try {
+                        DroidBridgeLaunchQueue.acknowledge(this, queuedLaunchId);
+                    } catch (Exception ignored) {
+                    }
+                    queuedLaunchId = null;
+                }
+                showStatus(
+                    fmt("%s started (pid %d). Preparing application window...", app.name, pid),
+                    true
+                );
+            }),
+            message -> mainHandler.post(() -> {
+                if (attempt >= MAX_BRIDGE_RETRIES) {
+                    fail(fmt(
+                        "%s. Linux is running, but DroidBridge is not ready.", message));
+                    return;
+                }
+                showStatus("Waiting for Linux application service...", true);
+                mainHandler.postDelayed(
+                    () -> attemptBridgeLaunch(attempt + 1), BRIDGE_RETRY_DELAY_MS);
+            })
+        );
     }
 
     private void fail(@NonNull String message) {
