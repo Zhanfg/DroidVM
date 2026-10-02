@@ -141,6 +141,13 @@
             android:text="@string/create_vm_smt" />
 
         <cn.classfun.droidvm.ui.widgets.row.SwitchRowWidget
+            android:id="@+id/sw_droidbridge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:icon="@drawable/ic_application_cog"
+            android:text="@string/create_vm_droidbridge" />
+
+        <cn.classfun.droidvm.ui.widgets.row.SwitchRowWidget
             android:id="@+id/sw_debug"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
