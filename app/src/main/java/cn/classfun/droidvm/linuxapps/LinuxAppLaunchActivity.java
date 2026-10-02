@@ -229,8 +229,7 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
             // M2 replaces this queue-only handoff with a live vsock request. The Activity remains
             // open because it will become the app's actual Android surface in M4.
             showStatus(
-                app.name + " is queued.\nDroidBridge transport is the next implementation step.\n"
-                    + "Launch ID: " + launchId,
+                fmt("%s is queued.\\nDroidBridge transport is the next implementation step.\\nLaunch ID: %s", app.name, launchId),
                 false
             );
         } catch (Exception e) {
