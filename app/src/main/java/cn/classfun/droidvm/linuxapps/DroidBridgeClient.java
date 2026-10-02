@@ -67,7 +67,9 @@ public final class DroidBridgeClient {
                 }
                 var registry = new LinuxAppRegistry(context);
                 registry.replaceForVm(vmId, apps);
-                LinuxShortcutPublisher.publishDynamic(context, apps);
+                // Dynamic shortcuts are app-global. Publishing only the VM that just synced would
+                // evict every other Linux environment from the launcher surface.
+                LinuxShortcutPublisher.publishDynamic(context, registry.listAll());
                 success.onApps(apps);
             } catch (Exception e) {
                 failure.onError("Unable to store Linux application catalog");
