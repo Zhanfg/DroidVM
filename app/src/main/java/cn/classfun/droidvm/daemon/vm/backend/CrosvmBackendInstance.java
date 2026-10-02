@@ -50,6 +50,7 @@ import cn.classfun.droidvm.lib.store.disk.DiskBus;
 import cn.classfun.droidvm.lib.store.vm.CpuPlacementPlan;
 import cn.classfun.droidvm.lib.store.vm.DisplayExporter;
 import cn.classfun.droidvm.lib.store.vm.DisplayTransportCap;
+import cn.classfun.droidvm.lib.store.vm.DroidBridgeConfig;
 import cn.classfun.droidvm.lib.store.vm.GpuApi;
 import cn.classfun.droidvm.lib.store.vm.GpuMode;
 import cn.classfun.droidvm.lib.store.vm.GuestPoolSizing;
@@ -492,6 +493,10 @@ public final class CrosvmBackendInstance extends VMBackendInstance {
         }
         buildDiskCommand(args);
         buildNetCommand(args);
+        if (DroidBridgeConfig.isEnabled(item)) {
+            args.add("--vsock");
+            args.add(fmt("cid=%d", DroidBridgeConfig.cidFor(config)));
+        }
         buildSharedDirCommand(args);
         buildGpuCommand(args);
         buildScreenExportersCommand(args);
