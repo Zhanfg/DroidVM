@@ -621,19 +621,23 @@ fn copy_optional_session_vars(
     }
 }
 
-fn x11_display_exists(display: &str) -> bool {
+fn x11_socket_path(display: &str) -> Option<PathBuf> {
     let local = display
         .strip_prefix(':')
         .or_else(|| display.strip_prefix("unix:"))
-        .and_then(|value| value.split('.').next());
-    let Some(number) = local else {
+        .and_then(|value| value.split('.').next())?;
+    if local.is_empty() || !local.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    Some(Path::new("/tmp/.X11-unix").join(format!("X{local}")))
+}
+
+fn x11_display_exists(display: &str) -> bool {
+    let Some(socket) = x11_socket_path(display) else {
         // A TCP/remote DISPLAY may be valid but should not be guessed by a system service.
         return false;
     };
-    if number.is_empty() || !number.bytes().all(|b| b.is_ascii_digit()) {
-        return false;
-    }
-    fs::metadata(Path::new("/tmp/.X11-unix").join(format!("X{number}")))
+    fs::metadata(socket)
         .map(|meta| meta.file_type().is_socket())
         .unwrap_or(false)
 }
@@ -897,6 +901,33 @@ mod tests {
     fn app_id_is_narrow() {
         assert!(valid_app_id("org.example.App"));
         assert!(!valid_app_id("org.example.App;rm"));
+    }
+
+    #[test]
+    fn parses_process_environment() {
+        let envs = parse_nul_environment(
+            b"DISPLAY=:3\0XDG_RUNTIME_DIR=/run/user/1000\0BROKEN\0USER=alice\0",
+        );
+        assert_eq!(envs.get("DISPLAY").map(String::as_str), Some(":3"));
+        assert_eq!(
+            envs.get("XDG_RUNTIME_DIR").map(String::as_str),
+            Some("/run/user/1000"),
+        );
+        assert_eq!(envs.get("USER").map(String::as_str), Some("alice"));
+        assert!(!envs.contains_key("BROKEN"));
+    }
+
+    #[test]
+    fn maps_only_local_x11_displays_to_sockets() {
+        assert_eq!(
+            x11_socket_path(":0.0"),
+            Some(PathBuf::from("/tmp/.X11-unix/X0")),
+        );
+        assert_eq!(
+            x11_socket_path("unix:12"),
+            Some(PathBuf::from("/tmp/.X11-unix/X12")),
+        );
+        assert_eq!(x11_socket_path("host.example:0"), None);
     }
 
     #[test]
