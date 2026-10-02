@@ -9,6 +9,8 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::mem;
 use std::os::fd::FromRawFd;
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -318,6 +320,147 @@ fn parse_bool(v: Option<&String>) -> bool {
     matches!(v.map(|s| s.as_str()), Some("true") | Some("True") | Some("TRUE") | Some("1"))
 }
 
+#[derive(Clone, Debug)]
+struct GraphicalSession {
+    backend: &'static str,
+    uid: u32,
+    gid: u32,
+    home: Option<String>,
+    user: Option<String>,
+    vars: Vec<(OsString, OsString)>,
+}
+
+fn graphical_session() -> Option<GraphicalSession> {
+    if let Some(session) = inherited_wayland_session() {
+        return Some(session);
+    }
+    discover_wayland_session()
+}
+
+fn inherited_wayland_session() -> Option<GraphicalSession> {
+    let display = env::var("WAYLAND_DISPLAY").ok()?;
+    if display.is_empty() {
+        return None;
+    }
+    let runtime = env::var("XDG_RUNTIME_DIR").ok()?;
+    let socket = if Path::new(&display).is_absolute() {
+        PathBuf::from(&display)
+    } else {
+        PathBuf::from(&runtime).join(&display)
+    };
+    let meta = fs::metadata(&socket).ok()?;
+    if !meta.file_type().is_socket() {
+        return None;
+    }
+    Some(session_for_wayland(meta.uid(), meta.gid(), runtime, display))
+}
+
+fn discover_wayland_session() -> Option<GraphicalSession> {
+    let root = Path::new("/run/user");
+    let mut user_dirs = fs::read_dir(root).ok()?
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let uid = entry.file_name().to_string_lossy().parse::<u32>().ok()?;
+            Some((uid, entry.path()))
+        })
+        .collect::<Vec<_>>();
+    // Prefer ordinary users over root, then stable uid order.
+    user_dirs.sort_by_key(|(uid, _)| (*uid == 0, *uid));
+
+    for (uid, dir) in user_dirs {
+        let mut sockets = match fs::read_dir(&dir) {
+            Ok(entries) => entries
+                .filter_map(Result::ok)
+                .filter(|entry| {
+                    let name = entry.file_name();
+                    let name = name.to_string_lossy();
+                    name.starts_with("wayland-") && !name.ends_with(".lock")
+                })
+                .collect::<Vec<_>>(),
+            Err(_) => continue,
+        };
+        sockets.sort_by_key(|entry| entry.file_name());
+        for entry in sockets {
+            let meta = match entry.metadata() {
+                Ok(meta) if meta.file_type().is_socket() => meta,
+                _ => continue,
+            };
+            let display = entry.file_name().to_string_lossy().to_string();
+            return Some(session_for_wayland(
+                uid,
+                meta.gid(),
+                dir.to_string_lossy().to_string(),
+                display,
+            ));
+        }
+    }
+    None
+}
+
+fn session_for_wayland(
+    uid: u32,
+    fallback_gid: u32,
+    runtime: String,
+    display: String,
+) -> GraphicalSession {
+    let identity = passwd_identity(uid);
+    let gid = identity.as_ref().map(|v| v.1).unwrap_or(fallback_gid);
+    let user = identity.as_ref().map(|v| v.0.clone());
+    let home = identity.as_ref().map(|v| v.2.clone());
+    let mut vars = vec![
+        (OsString::from("XDG_RUNTIME_DIR"), OsString::from(&runtime)),
+        (OsString::from("WAYLAND_DISPLAY"), OsString::from(&display)),
+    ];
+    let bus = PathBuf::from(&runtime).join("bus");
+    if bus.exists() {
+        vars.push((
+            OsString::from("DBUS_SESSION_BUS_ADDRESS"),
+            OsString::from(format!("unix:path={}", bus.to_string_lossy())),
+        ));
+    }
+    GraphicalSession {
+        backend: "wayland",
+        uid,
+        gid,
+        home,
+        user,
+        vars,
+    }
+}
+
+fn passwd_identity(uid: u32) -> Option<(String, u32, String)> {
+    let text = fs::read_to_string("/etc/passwd").ok()?;
+    for line in text.lines() {
+        let fields = line.split(':').collect::<Vec<_>>();
+        if fields.len() < 7 {
+            continue;
+        }
+        if fields[2].parse::<u32>().ok()? != uid {
+            continue;
+        }
+        let gid = fields[3].parse::<u32>().ok()?;
+        return Some((fields[0].to_string(), gid, fields[5].to_string()));
+    }
+    None
+}
+
+fn apply_graphical_session(cmd: &mut Command, session: &GraphicalSession) {
+    for (key, value) in &session.vars {
+        cmd.env(key, value);
+    }
+    if let Some(home) = &session.home {
+        cmd.env("HOME", home);
+    }
+    if let Some(user) = &session.user {
+        cmd.env("USER", user);
+        cmd.env("LOGNAME", user);
+    }
+    if unsafe { libc::geteuid() } == 0 {
+        cmd.uid(session.uid);
+        cmd.gid(session.gid);
+    }
+}
+
 fn launch_request(req: &Value) -> Result<Value, (&'static str, String)> {
     let app_id = req.get("app_id")
         .and_then(Value::as_str)
@@ -343,9 +486,24 @@ fn launch_request(req: &Value) -> Result<Value, (&'static str, String)> {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
+    let session = if app.terminal {
+        None
+    } else {
+        let session = graphical_session().ok_or((
+            "GUI_UNAVAILABLE",
+            "no running Wayland session was discovered".to_string(),
+        ))?;
+        apply_graphical_session(&mut cmd, &session);
+        Some(session)
+    };
+
     let child = cmd.spawn().map_err(|e| ("APP_DISABLED", e.to_string()))?;
     let launch_id = format!("{}-{}", child.id(), monotonic_hint());
-    Ok(json!({ "launch_id": launch_id, "pid": child.id() }))
+    Ok(json!({
+        "launch_id": launch_id,
+        "pid": child.id(),
+        "display_backend": session.as_ref().map(|v| v.backend).unwrap_or("terminal")
+    }))
 }
 
 fn string_array(value: Option<&Value>) -> Result<Vec<String>, (&'static str, String)> {
@@ -492,4 +650,13 @@ mod tests {
         assert!(valid_app_id("org.example.App"));
         assert!(!valid_app_id("org.example.App;rm"));
     }
+
+    #[test]
+    fn passwd_identity_parser_has_root_when_present() {
+        if Path::new("/etc/passwd").exists() {
+            let root = passwd_identity(0);
+            assert!(root.is_some());
+        }
+    }
+
 }
