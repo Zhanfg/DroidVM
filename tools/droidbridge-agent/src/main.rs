@@ -5,16 +5,17 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::env;
 use std::ffi::OsString;
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::mem;
-use std::os::fd::FromRawFd;
+use std::os::fd::{AsRawFd, FromRawFd};
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 const DEFAULT_PORT: u32 = 4050;
+const DEFAULT_SERIAL: &str = "/dev/ttyS3";
 const VMADDR_CID_ANY: u32 = 0xffff_ffff;
 const MAX_FRAME: usize = 1024 * 1024;
 const MAX_ARGS: usize = 256;
@@ -58,11 +59,33 @@ fn main() -> io::Result<()> {
         .ok()
         .and_then(|s| s.parse::<u32>().ok())
         .unwrap_or(DEFAULT_PORT);
-    let listener = bind_vsock(port)?;
-    eprintln!("droidbridge-agent: listening on vsock port {port}");
 
+    match bind_vsock(port) {
+        Ok(listener) => {
+            eprintln!("droidbridge-agent: listening on vsock port {port}");
+            serve_vsock(listener)
+        }
+        Err(vsock_error) => {
+            let serial = env::var("DROIDBRIDGE_SERIAL")
+                .unwrap_or_else(|_| DEFAULT_SERIAL.to_string());
+            eprintln!(
+                "droidbridge-agent: vsock unavailable ({vsock_error}); using serial {serial}"
+            );
+            serve_serial_path(&serial)
+        }
+    }
+}
+
+fn serve_vsock(listener: libc::c_int) -> io::Result<()> {
     loop {
-        let fd = unsafe { libc::accept4(listener, std::ptr::null_mut(), std::ptr::null_mut(), libc::SOCK_CLOEXEC) };
+        let fd = unsafe {
+            libc::accept4(
+                listener,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                libc::SOCK_CLOEXEC,
+            )
+        };
         if fd < 0 {
             let e = io::Error::last_os_error();
             if e.kind() == io::ErrorKind::Interrupted {
@@ -76,6 +99,68 @@ fn main() -> io::Result<()> {
                 eprintln!("droidbridge-agent: client error: {e}");
             }
         });
+    }
+}
+
+fn serve_serial_path(path: &str) -> io::Result<()> {
+    let mut stream = OpenOptions::new().read(true).write(true).open(path)?;
+    configure_serial_raw(stream.as_raw_fd())?;
+    serve_serial(&mut stream)
+}
+
+fn configure_serial_raw(fd: libc::c_int) -> io::Result<()> {
+    let mut termios: libc::termios = unsafe { mem::zeroed() };
+    if unsafe { libc::tcgetattr(fd, &mut termios) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    unsafe { libc::cfmakeraw(&mut termios) };
+    termios.c_cflag |= libc::CLOCAL | libc::CREAD;
+    if unsafe { libc::tcsetattr(fd, libc::TCSANOW, &termios) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+fn serve_serial(stream: &mut File) -> io::Result<()> {
+    let mut line = Vec::<u8>::new();
+    let mut byte = [0u8; 1];
+    loop {
+        let n = stream.read(&mut byte)?;
+        if n == 0 {
+            return Ok(());
+        }
+        match byte[0] {
+            b'\n' => {
+                if line.is_empty() {
+                    continue;
+                }
+                let request: Value = serde_json::from_slice(&line)
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+                let response = handle_request(request);
+                let payload = serde_json::to_vec(&response)
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+                if payload.len() > MAX_FRAME {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "serial response too large",
+                    ));
+                }
+                stream.write_all(&payload)?;
+                stream.write_all(b"\n")?;
+                stream.flush()?;
+                line.clear();
+            }
+            b'\r' => {}
+            value => {
+                if line.len() >= MAX_FRAME {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "serial request too large",
+                    ));
+                }
+                line.push(value);
+            }
+        }
     }
 }
 
