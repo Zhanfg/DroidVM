@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright DroidVM contributors
-package cn.classfun.droidvm.linuxapps;\n\nimport static cn.classfun.droidvm.lib.utils.StringUtils.fmt;
+package cn.classfun.droidvm.linuxapps;
+
+import static cn.classfun.droidvm.lib.utils.StringUtils.fmt;
 
 import android.content.Context;
 import android.util.Log;
@@ -55,14 +57,11 @@ public final class LinuxAppRegistry {
         return read().get(key(vmId, appId));
     }
 
-    /**
-     * Replaces exactly one VM's catalog after a successful apps.list response.
-     */
+    /** Replaces exactly one VM's catalog after a successful apps.list response. */
     public synchronized void replaceForVm(
         @NonNull String vmId,
         @NonNull List<LinuxAppDescriptor> apps
     ) {
-        // Validate the VM id even when apps is empty.
         java.util.UUID.fromString(vmId);
         if (apps.size() > MAX_APPS)
             throw new IllegalArgumentException("Guest app catalog exceeds limit");
@@ -139,6 +138,6 @@ public final class LinuxAppRegistry {
 
     @NonNull
     private static String key(@NonNull String vmId, @NonNull String appId) {
-        return fmt("%s\\0%s", vmId, appId);
+        return fmt("%s|%s", vmId, appId);
     }
 }
