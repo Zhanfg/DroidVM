@@ -38,6 +38,22 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Add DroidBridge guest target
+        run: rustup target add aarch64-unknown-linux-musl
+
+      - name: Locate Rust linker
+        shell: bash
+        run: |
+          sysroot="$(rustc --print sysroot)"
+          linker="$sysroot/lib/rustlib/$(rustc -vV | sed -n 's/^host: //p')/bin/rust-lld"
+          test -x "$linker"
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=$linker" >> "$GITHUB_ENV"
+
+      - name: Build static DroidBridge guest agent
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static"
+        run: cargo build --manifest-path tools/droidbridge-agent/Cargo.toml --release --target aarch64-unknown-linux-musl
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
