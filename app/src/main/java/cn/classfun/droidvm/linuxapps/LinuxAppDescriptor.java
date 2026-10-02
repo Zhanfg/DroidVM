@@ -31,24 +31,34 @@ public final class LinuxAppDescriptor {
     public final boolean supportsFiles;
     public final boolean supportsUris;
 
+    public static final class Capabilities {
+        public final boolean terminal;
+        public final boolean supportsFiles;
+        public final boolean supportsUris;
+
+        public Capabilities(boolean terminal, boolean supportsFiles, boolean supportsUris) {
+            this.terminal = terminal;
+            this.supportsFiles = supportsFiles;
+            this.supportsUris = supportsUris;
+        }
+    }
+
     public LinuxAppDescriptor(
         @NonNull String vmId,
         @NonNull String appId,
         @NonNull String name,
         @NonNull String genericName,
         @NonNull String iconKey,
-        boolean terminal,
-        boolean supportsFiles,
-        boolean supportsUris
+        @NonNull Capabilities capabilities
     ) {
         this.vmId = validateVmId(vmId);
         this.appId = validateAppId(appId);
         this.name = bounded(name, "name");
         this.genericName = bounded(genericName, "genericName");
         this.iconKey = bounded(iconKey, "iconKey");
-        this.terminal = terminal;
-        this.supportsFiles = supportsFiles;
-        this.supportsUris = supportsUris;
+        this.terminal = capabilities.terminal;
+        this.supportsFiles = capabilities.supportsFiles;
+        this.supportsUris = capabilities.supportsUris;
     }
 
     public LinuxAppDescriptor(@NonNull JSONObject obj) throws JSONException {
@@ -58,9 +68,11 @@ public final class LinuxAppDescriptor {
             obj.getString("name"),
             obj.optString("generic_name", ""),
             obj.optString("icon_key", ""),
-            obj.optBoolean("terminal", false),
-            obj.optBoolean("supports_files", false),
-            obj.optBoolean("supports_uris", false)
+            new Capabilities(
+                obj.optBoolean("terminal", false),
+                obj.optBoolean("supports_files", false),
+                obj.optBoolean("supports_uris", false)
+            )
         );
     }
 
