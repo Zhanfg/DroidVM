@@ -32,6 +32,7 @@ public final class LinuxAppRegistry {
     private static final String TAG = "LinuxAppRegistry";
     private static final String FILE_NAME = "linux_apps.json";
     private static final int MAX_APPS = 4096;
+    private static final Object IO_LOCK = new Object();
 
     private final File file;
 
@@ -40,25 +41,31 @@ public final class LinuxAppRegistry {
     }
 
     @NonNull
-    public synchronized List<LinuxAppDescriptor> listAll() {
-        return new ArrayList<>(read().values());
+    public List<LinuxAppDescriptor> listAll() {
+        synchronized (IO_LOCK) {
+            return new ArrayList<>(read().values());
+        }
     }
 
     @NonNull
-    public synchronized List<LinuxAppDescriptor> listForVm(@NonNull String vmId) {
-        var out = new ArrayList<LinuxAppDescriptor>();
-        for (var app : read().values())
-            if (vmId.equals(app.vmId)) out.add(app);
-        return out;
+    public List<LinuxAppDescriptor> listForVm(@NonNull String vmId) {
+        synchronized (IO_LOCK) {
+            var out = new ArrayList<LinuxAppDescriptor>();
+            for (var app : read().values())
+                if (vmId.equals(app.vmId)) out.add(app);
+            return out;
+        }
     }
 
     @Nullable
-    public synchronized LinuxAppDescriptor find(@NonNull String vmId, @NonNull String appId) {
-        return read().get(key(vmId, appId));
+    public LinuxAppDescriptor find(@NonNull String vmId, @NonNull String appId) {
+        synchronized (IO_LOCK) {
+            return read().get(key(vmId, appId));
+        }
     }
 
     /** Replaces exactly one VM's catalog after a successful apps.list response. */
-    public synchronized void replaceForVm(
+    public void replaceForVm(
         @NonNull String vmId,
         @NonNull List<LinuxAppDescriptor> apps
     ) {
@@ -66,20 +73,24 @@ public final class LinuxAppRegistry {
         if (apps.size() > MAX_APPS)
             throw new IllegalArgumentException("Guest app catalog exceeds limit");
 
-        var all = read();
-        all.entrySet().removeIf(e -> vmId.equals(e.getValue().vmId));
-        for (var app : apps) {
-            if (!vmId.equals(app.vmId))
-                throw new IllegalArgumentException("Catalog contains an app for another VM");
-            all.put(key(app.vmId, app.appId), app);
+        synchronized (IO_LOCK) {
+            var all = read();
+            all.entrySet().removeIf(e -> vmId.equals(e.getValue().vmId));
+            for (var app : apps) {
+                if (!vmId.equals(app.vmId))
+                    throw new IllegalArgumentException("Catalog contains an app for another VM");
+                all.put(key(app.vmId, app.appId), app);
+            }
+            write(all);
         }
-        write(all);
     }
 
-    public synchronized void removeVm(@NonNull String vmId) {
-        var all = read();
-        if (all.entrySet().removeIf(e -> vmId.equals(e.getValue().vmId)))
-            write(all);
+    public void removeVm(@NonNull String vmId) {
+        synchronized (IO_LOCK) {
+            var all = read();
+            if (all.entrySet().removeIf(e -> vmId.equals(e.getValue().vmId)))
+                write(all);
+        }
     }
 
     @NonNull
