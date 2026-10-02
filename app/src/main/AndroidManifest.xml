@@ -269,6 +269,13 @@
 
         <!-- Stable Android task target for launcher-published Linux GUI applications. -->
         <activity
+            android:name=".linuxapps.LinuxAppsActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
+            android:exported="false"
+            android:theme="@style/Theme.DroidVM.NoActionBar"
+            android:windowSoftInputMode="adjustNothing" />
+
+        <activity
             android:name=".linuxapps.LinuxAppLaunchActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
             android:documentLaunchMode="always"
