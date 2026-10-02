@@ -8,4 +8,10 @@
         android:title="@string/menu_refresh"
         app:showAsAction="ifRoom" />
 
+    <item
+        android:id="@+id/menu_linux_apps"
+        android:icon="@drawable/ic_nav_vm"
+        android:title="@string/linux_apps_title"
+        app:showAsAction="ifRoom" />
+
 </menu>
