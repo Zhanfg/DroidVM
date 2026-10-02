@@ -2,7 +2,8 @@
 // Copyright DroidVM contributors
 package cn.classfun.droidvm.linuxapps;
 
-import static java.nio.charset.StandardCharsets.UTF_8;\nimport static cn.classfun.droidvm.lib.utils.StringUtils.fmt;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static cn.classfun.droidvm.lib.utils.StringUtils.fmt;
 
 import androidx.annotation.NonNull;
 
@@ -90,12 +91,11 @@ public final class LinuxAppDescriptor {
         return out;
     }
 
-    /**
-     * Stable Android shortcut id without leaking a potentially long/untrusted desktop-entry id.
-     */
+    /** Stable shortcut id without exposing a long/untrusted desktop-entry id to the launcher. */
     @NonNull
     public String shortcutId() {
-        return fmt("linux-%s", UUID.nameUUIDFromBytes(fmt("%s\\0%s", vmId, appId).getBytes(UTF_8)));
+        var material = fmt("%s|%s", vmId, appId).getBytes(UTF_8);
+        return fmt("linux-%s", UUID.nameUUIDFromBytes(material));
     }
 
     @NonNull
@@ -106,8 +106,8 @@ public final class LinuxAppDescriptor {
 
     @NonNull
     private static String validateAppId(@NonNull String value) {
-        if (value.isEmpty() || value.length() > MAX_APP_ID ||
-            !value.matches("[A-Za-z0-9._:+@\\-]+"))
+        if (value.isEmpty() || value.length() > MAX_APP_ID
+            || !value.matches("[A-Za-z0-9._:+@-]+"))
             throw new IllegalArgumentException("Invalid Linux app id");
         return value;
     }
