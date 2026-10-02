@@ -82,20 +82,6 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
     public UUID vmId;
     public VMConfig config;
     public VMStore store;
-    // Pre-start convert (decompress a crosvm-unreadable qcow2): run this once
-    // the convert Activity returns RESULT_OK.
-    @Nullable
-    private Runnable pendingAfterConvert;
-    private final ActivityResultLauncher<Intent> convertResultLauncher =
-        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-            var cb = pendingAfterConvert;
-            pendingAfterConvert = null;
-            if (result.getResultCode() == RESULT_OK && cb != null) cb.run();
-        });
-    private final VMActions.ConvertLauncher convertLauncher = (intent, onConverted) -> {
-        pendingAfterConvert = onConverted;
-        convertResultLauncher.launch(intent);
-    };
     private final ActivityResultLauncher<Intent> droidBridgeResultLauncher =
         registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
             if (result.getResultCode() != RESULT_OK || config == null) return;
@@ -118,6 +104,20 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
                 }
             });
         });
+    // Pre-start convert (decompress a crosvm-unreadable qcow2): run this once
+    // the convert Activity returns RESULT_OK.
+    @Nullable
+    private Runnable pendingAfterConvert;
+    private final ActivityResultLauncher<Intent> convertResultLauncher =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            var cb = pendingAfterConvert;
+            pendingAfterConvert = null;
+            if (result.getResultCode() == RESULT_OK && cb != null) cb.run();
+        });
+    private final VMActions.ConvertLauncher convertLauncher = (intent, onConverted) -> {
+        pendingAfterConvert = onConverted;
+        convertResultLauncher.launch(intent);
+    };
     private final ConsoleButton toolConsole = new ConsoleButton(this);
     private VMState oldState = VMState.STOPPED;
     private CollapsingToolbarLayout collapsingToolbar;
