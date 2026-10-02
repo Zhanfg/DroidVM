@@ -30,6 +30,8 @@ import cn.classfun.droidvm.lib.store.disk.DiskConfig;
 import cn.classfun.droidvm.lib.store.disk.DiskStore;
 import cn.classfun.droidvm.lib.store.vm.BootConfig;
 import cn.classfun.droidvm.lib.store.vm.LendMthpMode;
+import cn.classfun.droidvm.lib.store.vm.SharedDirCache;
+import cn.classfun.droidvm.lib.store.vm.SharedDirType;
 import cn.classfun.droidvm.lib.store.vm.VMBackend;
 import cn.classfun.droidvm.lib.store.vm.VMConfig;
 import cn.classfun.droidvm.lib.store.vm.VMHypervisor;
@@ -43,6 +45,7 @@ public final class AgentVM implements JSONSerialize {
     private List<DiskConfig> disks = new ArrayList<>();
     private List<AgentActionSpec> actions = new ArrayList<>();
     private Map<String, String> vars = new HashMap<>();
+    private Map<String, String> sharedDirs = new HashMap<>();
     private String randomId = null;
     private String operationConsoleStream = null;
     private String operationConsoleDevice = null;
@@ -81,6 +84,8 @@ public final class AgentVM implements JSONSerialize {
             jo, "actions", v -> new AgentActionSpec((JSONObject) v));
         if (jo.has("vars"))
             this.vars = JsonUtils.objectToStringMap(jo, "vars");
+        if (jo.has("shared_dirs"))
+            this.sharedDirs = JsonUtils.objectToStringMap(jo, "shared_dirs");
         var operationConsole = jo.optJSONObject("operation_console");
         if (operationConsole != null)
             setOperationConsole(
@@ -109,6 +114,10 @@ public final class AgentVM implements JSONSerialize {
         for (var entry : vars.entrySet())
             varsObj.put(entry.getKey(), entry.getValue());
         jo.put("vars", varsObj);
+        var sharedDirsObj = new JSONObject();
+        for (var entry : sharedDirs.entrySet())
+            sharedDirsObj.put(entry.getKey(), entry.getValue());
+        jo.put("shared_dirs", sharedDirsObj);
         if (operationConsoleStream != null && operationConsoleDevice != null) {
             var operationConsole = new JSONObject();
             operationConsole.put("stream", operationConsoleStream);
@@ -137,6 +146,17 @@ public final class AgentVM implements JSONSerialize {
 
     public void addDisk(@NonNull DiskConfig disk) {
         disks.add(disk);
+    }
+
+    /**
+     * Adds one host directory as a read-mostly virtio-fs payload source for rescue actions.
+     */
+    public void addSharedDir(@NonNull String tag, @NonNull String path) {
+        if (!CONSOLE_STREAM_PATTERN.matcher(tag).matches())
+            throw new IllegalArgumentException("Invalid shared directory tag");
+        if (!path.startsWith("/"))
+            throw new IllegalArgumentException("Shared directory path must be absolute");
+        sharedDirs.put(tag, path);
     }
 
     /** Appends an operation; list order is execution order inside the same rescue VM. */
@@ -229,6 +249,19 @@ public final class AgentVM implements JSONSerialize {
             diskItems.append(item);
         }
         vm.item.set("disks", diskItems);
+        var sharedItems = DataItem.newArray();
+        for (var entry : sharedDirs.entrySet()) {
+            var item = DataItem.newObject();
+            item.set("path", entry.getValue());
+            item.set("tag", entry.getKey());
+            item.set("type", SharedDirType.FS);
+            item.set("cache", SharedDirCache.NEVER);
+            item.set("writeback", false);
+            item.set("posix_acl", false);
+            item.set("root_access", false);
+            sharedItems.append(item);
+        }
+        vm.item.set("shared_dirs", sharedItems);
         vm.item.set("networks", DataItem.newArray());
         return vm;
     }
