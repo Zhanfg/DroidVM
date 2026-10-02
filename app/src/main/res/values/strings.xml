@@ -1738,4 +1738,13 @@
     <!-- U+1F512, as an entity: the base file stays ASCII (scripts/ci/check_ascii.py). -->
     <string name="usb_devices_locked_fmt" translatable="false">&#128274; %1$s</string>
     <string name="usb_devices_idle_kept">%1$s stays with the host: a driver of its would not let go, so it goes idle only when it is unplugged</string>
+    <string name="linux_apps_title">Linux apps</string>
+    <string name="linux_apps_empty">No Linux applications have been discovered yet. Start a DroidBridge-enabled Linux environment and refresh.</string>
+    <string name="linux_apps_launch">Open</string>
+    <string name="linux_apps_pin">Add to Home screen</string>
+    <string name="linux_apps_pin_unavailable">This launcher does not support pinned shortcuts.</string>
+    <string name="linux_apps_vm">Linux environment: %1$s</string>
+    <string name="linux_apps_detail">%1$s\nLinux environment: %2$s</string>
+    <string name="linux_apps_refresh_none">No running DroidBridge-enabled Linux environment was found.</string>
+    <string name="linux_apps_refresh_result">Linux app refresh complete: %1$d updated, %2$d failed.</string>
 </resources>
