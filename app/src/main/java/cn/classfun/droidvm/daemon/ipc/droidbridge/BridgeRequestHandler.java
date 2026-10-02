@@ -52,6 +52,8 @@ public final class BridgeRequestHandler extends RequestHandler {
             throw new RequestException(fmt("VM is not running: %s", vmId));
         if (!DroidBridgeConfig.isEnabled(inst.item))
             throw new RequestException("DroidBridge is not enabled for this VM");
+        if (!DroidBridgeConfig.hostVsockAvailable())
+            throw new RequestException("Host vhost-vsock is unavailable");
 
         long cidLong = DroidBridgeConfig.cidFor(inst.getId());
         if (cidLong > Integer.MAX_VALUE)
