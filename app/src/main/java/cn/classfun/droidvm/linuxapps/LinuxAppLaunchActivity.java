@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright DroidVM contributors
-package cn.classfun.droidvm.linuxapps;
+package cn.classfun.droidvm.linuxapps;\n\nimport static cn.classfun.droidvm.lib.utils.StringUtils.fmt;
 
 import android.os.Bundle;
 import android.os.Handler;
@@ -47,7 +47,7 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean wantOpenConsole = new AtomicBoolean(false);
     private final String callbackId =
-        "LinuxAppLaunchActivity:" + Integer.toHexString(System.identityHashCode(this));
+        fmt("LinuxAppLaunchActivity:%s", Integer.toHexString(System.identityHashCode(this)));
 
     private TextView status;
     private ProgressBar progress;
@@ -125,7 +125,7 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
                     "The Linux environment no longer exists");
                 mainHandler.post(() -> {
                     setTitle(app.name);
-                    showStatus("Waking " + app.name + "...", true);
+                    showStatus(fmt("Waking %s...", app.name), true);
                     DaemonConnection.getInstance().connect();
                     queryVmState(0);
                 });
@@ -218,7 +218,7 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
     @Override
     public void onVMExited(UUID id, String vmName, int exitCode, JSONObject data) {
         if (vmId != null && vmId.equals(id) && !launchQueued)
-            fail("Linux environment exited (" + exitCode + ").");
+            fail(fmt("Linux environment exited (%d).", exitCode));
     }
 
     private void enqueueLaunch() {
