@@ -15,7 +15,7 @@ public final class LinuxAppDescriptorTest {
     public void jsonRoundTripDoesNotCarryExec() throws Exception {
         var app = new LinuxAppDescriptor(
             VM, "org.example.Editor", "Editor", "Text Editor", "editor",
-            false, true, true
+            new LinuxAppDescriptor.Capabilities(false, true, true)
         );
         JSONObject json = app.toJson();
         assertTrue(!json.has("exec"));
@@ -30,7 +30,8 @@ public final class LinuxAppDescriptorTest {
     @Test
     public void appIdRejectsShellSyntax() {
         assertThrows(IllegalArgumentException.class, () -> new LinuxAppDescriptor(
-            VM, "org.example.App;rm", "bad", "", "", false, false, false
+            VM, "org.example.App;rm", "bad", "", "",
+            new LinuxAppDescriptor.Capabilities(false, false, false)
         ));
     }
 }
