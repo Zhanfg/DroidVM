@@ -31,6 +31,7 @@ import cn.classfun.droidvm.lib.store.vm.VMStore;
 import cn.classfun.droidvm.lib.ui.UIContext;
 import cn.classfun.droidvm.lib.utils.ThreadUtils;
 import cn.classfun.droidvm.ui.vm.VMActions;
+import cn.classfun.droidvm.ui.vm.console.VMConsoleRouter;
 
 /**
  * Android task representing one Linux application launch.
@@ -250,9 +251,16 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
                     queuedLaunchId = null;
                 }
                 showStatus(
-                    fmt("%s started (pid %d). Preparing application window...", app.name, pid),
+                    fmt("%s started (pid %d). Opening application window...", app.name, pid),
                     true
                 );
+                // M4 first usable GUI path: hand the already-running VM's default bound screen to
+                // the existing native/VNC display router. A later Wayland bridge replaces this
+                // whole-screen handoff with one Android task per guest toplevel without changing
+                // the shortcut or VM-wake contract above.
+                if (vm != null && vmId != null)
+                    mainHandler.postDelayed(
+                        () -> VMConsoleRouter.openDefault(this, vmId, vm, true), 250);
             }),
             message -> mainHandler.post(() -> {
                 if (attempt >= MAX_BRIDGE_RETRIES) {
