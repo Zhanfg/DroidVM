@@ -51,8 +51,12 @@ public final class DroidBridgeInstallAction extends BaseAction {
             "PAYLOAD=/run/droidbridge-tools",
             "mkdir -p \"$PAYLOAD\"",
             "modprobe virtiofs >/dev/null 2>&1 || true",
-            fmt("mount -t virtiofs %s \"$PAYLOAD\" >/dev/null 2>&1 || fail DROIDBRIDGE_PAYLOAD_MOUNT_FAILED",
-                DroidBridgeGuestTools.SHARE_TAG),
+            "modprobe 9pnet_virtio >/dev/null 2>&1 || true",
+            "modprobe 9p >/dev/null 2>&1 || true",
+            fmt("mount -t virtiofs %s \"$PAYLOAD\" >/dev/null 2>&1 || " +
+                "mount -t 9p -o trans=virtio,version=9p2000.L,ro %s \"$PAYLOAD\" >/dev/null 2>&1 || " +
+                "fail DROIDBRIDGE_PAYLOAD_MOUNT_FAILED",
+                DroidBridgeGuestTools.SHARE_TAG, DroidBridgeGuestTools.SHARE_TAG),
             fmt("[ -x \"$PAYLOAD/%s\" ] || fail DROIDBRIDGE_PAYLOAD_MISSING",
                 DroidBridgeGuestTools.AGENT_NAME),
             "mkdir -p /mnt/usr/libexec || fail DROIDBRIDGE_INSTALL_FAILED",
