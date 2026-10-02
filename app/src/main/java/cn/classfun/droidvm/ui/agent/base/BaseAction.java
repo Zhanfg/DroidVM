@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import cn.classfun.droidvm.ui.agent.autogrow.AutoGrowAction;
+import cn.classfun.droidvm.ui.agent.droidbridge.DroidBridgeInstallAction;
 import cn.classfun.droidvm.ui.agent.password.PasswordAction;
 
 public abstract class BaseAction {
@@ -52,6 +53,8 @@ public abstract class BaseAction {
                 return new PasswordAction(vm, spec);
             case AutoGrowAction.TYPE:
                 return new AutoGrowAction(vm, spec);
+            case DroidBridgeInstallAction.TYPE:
+                return new DroidBridgeInstallAction(vm, spec);
             default:
                 throw new IllegalArgumentException(fmt(
                     "VM: Unknown action: %s", spec.getType()));
@@ -89,6 +92,7 @@ public abstract class BaseAction {
             "command_log() { printf '\\n[droidvm] $ %s\\n' \"$1\"; }",
             "release_mounts() {",
             "    sync",
+            "    umount /run/droidbridge-tools >/dev/null 2>&1 || true",
             "    umount /mnt/proc >/dev/null 2>&1 || true",
             "    umount /mnt/dev >/dev/null 2>&1 || true",
             "    umount /mnt >/dev/null 2>&1 || true",
