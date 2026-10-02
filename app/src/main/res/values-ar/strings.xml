@@ -889,6 +889,7 @@
     <string name="agent_operation_partial">اكتملت العملية، ولكن بعض الخطوات فشلت:\n%1$s</string>
     <string name="agent_operation_action_password">تغيير كلمة المرور</string>
     <string name="agent_operation_action_autogrow">توسيع نظام الملفات</string>
+    <string name="agent_operation_action_droidbridge">تثبيت DroidBridge</string>
     <string name="agent_operation_failed">فشلت العملية (رمز الخروج %1$d).</string>
     <string name="agent_operation_failed_detail">فشلت العملية: %1$s</string>
     <string name="agent_operation_prepare_failed">فشل تحضير جهاز الوكيل الافتراضي (Agent VM).</string>
@@ -921,6 +922,11 @@
     <string name="agent_operation_error_filesystem_mount">تعذر تثبيت (Mount) نظام الملفات لتغيير حجمه.</string>
     <string name="agent_operation_error_filesystem_grow">تم توسيع حجم القسم، ولكن فشل توسيع نظام الملفات بداخله.</string>
     <string name="agent_operation_error_filesystem_unmount">تمت زيادة حجم نظام الملفات، لكن تعذر إلغاء تثبيته (Unmount) بأمان.</string>
+    <string name="agent_operation_error_droidbridge_root">تعذر العثور على نظام ملفات جذر Linux.</string>
+    <string name="agent_operation_error_droidbridge_mount">تعذر تركيب حمولة DroidBridge داخل جهاز الإنقاذ الافتراضي.</string>
+    <string name="agent_operation_error_droidbridge_missing">وكيل DroidBridge الخاص بالضيف غير موجود في هذا البناء.</string>
+    <string name="agent_operation_error_droidbridge_install">تعذر تثبيت وكيل DroidBridge الخاص بالضيف.</string>
+    <string name="agent_operation_error_droidbridge_init">صورة Linux هذه تستخدم نظام تهيئة غير مدعوم حالياً بواسطة DroidBridge.</string>
     <string name="agent_operation_error_unknown">خطأ في الإنقاذ: %1$s</string>
 
     <string name="disk_resize">تغيير الحجم</string>
