@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright DroidVM contributors
-package cn.classfun.droidvm.linuxapps;
+package cn.classfun.droidvm.linuxapps;\n\nimport static cn.classfun.droidvm.lib.utils.StringUtils.fmt;
 
 import android.content.Context;
 import android.util.Log;
@@ -116,7 +116,7 @@ public final class LinuxAppRegistry {
             root.put("version", 1);
             root.put("apps", arr);
 
-            var tmp = new File(file.getParentFile(), file.getName() + ".tmp");
+            var tmp = new File(file.getParentFile(), fmt("%s.tmp", file.getName()));
             try (var os = new FileOutputStream(tmp, false)) {
                 os.write(root.toString().getBytes(StandardCharsets.UTF_8));
                 os.flush();
