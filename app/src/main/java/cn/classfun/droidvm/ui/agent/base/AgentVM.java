@@ -257,6 +257,7 @@ public final class AgentVM implements JSONSerialize {
             item.set("type", SharedDirType.FS);
             item.set("cache", SharedDirCache.NEVER);
             item.set("writeback", false);
+            item.set("readonly", true);
             item.set("posix_acl", false);
             item.set("root_access", false);
             sharedItems.append(item);
