@@ -69,3 +69,52 @@ Do not retry the raw `--protected-vm-without-firmware` command used during the e
 3. Only after a successful baseline, add PJZ110-specific safety guards and a reproducible preset.
 4. Only add `gh_hugepage_reserve` if logs prove a huge-page shortage; never use it as a blind first fix.
 5. Once the stable Gunyah command line is known, port that command construction back toward the Android 16 Terminal integration.
+
+
+## Validated baseline (PJZ110)
+
+Validated on 2026-10-02 on PJZ110 / SM8750 with Android 16 and host kernel 6.6.147.
+
+Working minimal configuration:
+
+- backend: crosvm
+- hypervisor: Gunyah
+- protected mode: pseudo-unprotected
+- vCPU: 1
+- RAM: 512 MiB
+- hugepages: enabled
+- prepare lend mTHP: chunked (<=256 MiB)
+- PMU: off
+- RNG: off
+- SMT: off
+- boot protocol: Linux
+- kernel source: manual
+- kernel: DroidVM built-in vmlinuz
+- initrd: DroidVM built-in initramfs.img
+- cmdline: root=/dev/vda2
+- one writable virtio-blk disk
+- network: disabled
+- virtio-gpu: disabled
+- simplefb: disabled
+- VPU: disabled
+- only Serial 1 attached to the app console; remaining serial ports sink output
+
+Observed result:
+
+- guest booted successfully to Alpine userspace;
+- root login on the app serial console succeeded;
+- host remained responsive during the initial boot;
+- no hugepage reserve kernel module was required for this baseline.
+
+This proves the device can run a minimal generic Linux guest through DroidVM's crosvm + Gunyah pseudo-unprotected path. It does **not** yet prove stability with networking, GPU/display, USB, shared folders, long-running load, or raw protected-without-firmware mode.
+
+### Next staged tests
+
+Enable one subsystem at a time and keep the last known-good config available:
+
+1. network only;
+2. RNG;
+3. SimpleFB/display;
+4. USB/sound only if needed;
+5. PMU/SMT last;
+6. hugepage reserve module only if logs show an actual memory-pinning/fragmentation failure.
