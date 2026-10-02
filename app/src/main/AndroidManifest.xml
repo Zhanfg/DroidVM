@@ -267,6 +267,16 @@
             android:theme="@style/Theme.DroidVM.NoActionBar"
             android:windowSoftInputMode="adjustNothing" />
 
+        <!-- Stable Android task target for launcher-published Linux GUI applications. -->
+        <activity
+            android:name=".linuxapps.LinuxAppLaunchActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
+            android:documentLaunchMode="always"
+            android:excludeFromRecents="false"
+            android:exported="true"
+            android:theme="@style/Theme.DroidVM.NoActionBar.Dark"
+            android:windowSoftInputMode="adjustResize" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
