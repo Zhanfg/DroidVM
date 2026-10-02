@@ -233,3 +233,55 @@ Observed result:
 This validates the Native Context + DRM2KGSL path functionally on PJZ110. Performance/acceleration quality is not yet benchmarked.
 
 Next staged test: virglrenderer + Vulkan (Venus) + Turnip, keeping SimpleFB enabled as fallback and leaving PMU/SMT/VPU/USB/sound disabled.
+
+
+## Validated Venus + Turnip stage (PJZ110)
+
+Validated on 2026-10-02.
+
+Configuration:
+
+- virtio-gpu: enabled
+- renderer backend: virglrenderer
+- GPU mode: Vulkan (Venus)
+- provider: Vulkan(Turnip)
+- SimpleFB: retained as fallback
+- network/RNG: enabled
+- PMU/SMT/VPU/USB/sound: disabled
+
+Observed result:
+
+- guest booted normally;
+- gpu-0 remained usable;
+- Alpine userspace remained usable;
+- host Android remained responsive;
+- no user-visible regression was observed.
+
+This validates the Venus + Turnip Vulkan proxy path on PJZ110.
+
+
+## Validated GfxStream + Turnip stage (PJZ110)
+
+Validated on 2026-10-02.
+
+Configuration:
+
+- virtio-gpu: enabled
+- renderer backend: gfxstream
+- GPU mode: Vulkan
+- provider: Vulkan(Turnip)
+- SimpleFB: retained as fallback
+- network/RNG: enabled
+- PMU/SMT/VPU/USB/sound: disabled
+
+Observed result:
+
+- guest booted normally;
+- gpu-0 remained usable;
+- Alpine userspace remained usable;
+- host Android remained responsive;
+- no user-visible regression was observed.
+
+This validates the GfxStream + Turnip path on PJZ110.
+
+At this point the minimum path needed for Android Terminal integration has been validated on-device: Gunyah pseudo-unprotected, block, network, RNG, framebuffer, virtio-gpu 2D, DRM2KGSL, Venus/Turnip, and GfxStream/Turnip. Further PMU/SMT/VPU/USB/audio testing is optional and should not block Terminal bring-up.
