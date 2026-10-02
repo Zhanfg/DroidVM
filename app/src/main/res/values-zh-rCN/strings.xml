@@ -202,6 +202,9 @@
     <string name="create_vm_rng">RNG (随机数生成器)</string>
     <string name="create_vm_smt">SMT (同步多线程)</string>
     <string name="create_vm_droidbridge">DroidBridge（Linux 应用）</string>
+    <string name="droidbridge_provision_action">安装 / 修复 DroidBridge</string>
+    <string name="droidbridge_provision_success">DroidBridge 已就绪，可用于 Linux 应用。</string>
+    <string name="droidbridge_provision_failed">无法准备 DroidBridge：%1$s</string>
     <string name="create_vm_debug">调试追踪</string>
     <string name="create_vm_protected_vm">保护模式</string>
     <string name="create_vm_swiotlb_hint">SWIOTLB 大小（保护模式）</string>
