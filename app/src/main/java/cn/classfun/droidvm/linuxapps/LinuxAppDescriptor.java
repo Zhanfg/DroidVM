@@ -83,7 +83,7 @@ public final class LinuxAppDescriptor {
      */
     @NonNull
     public String shortcutId() {
-        return "linux-" + UUID.nameUUIDFromBytes((vmId + "\0" + appId).getBytes(UTF_8));
+        return fmt("linux-%s", UUID.nameUUIDFromBytes(fmt("%s\\0%s", vmId, appId).getBytes(UTF_8)));
     }
 
     @NonNull
