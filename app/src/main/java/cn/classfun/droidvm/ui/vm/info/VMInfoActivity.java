@@ -78,6 +78,10 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
     private final UIContext ui = UIContext.fromActivity(this);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean wantOpenConsole = new AtomicBoolean(false);
+    public VMState currentState = VMState.STOPPED;
+    public UUID vmId;
+    public VMConfig config;
+    public VMStore store;
     // Pre-start convert (decompress a crosvm-unreadable qcow2): run this once
     // the convert Activity returns RESULT_OK.
     @Nullable
@@ -141,10 +145,6 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
     private CollapsibleContainer ccPortForwards;
     private LinearLayout containerPortForwards;
     private TextView tvPfEmpty;
-    public VMState currentState = VMState.STOPPED;
-    public UUID vmId;
-    public VMConfig config;
-    public VMStore store;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
