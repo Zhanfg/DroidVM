@@ -884,6 +884,7 @@
     <string name="agent_operation_partial">Operation completed, but some steps failed:\n%1$s</string>
     <string name="agent_operation_action_password">Password change</string>
     <string name="agent_operation_action_autogrow">Filesystem expansion</string>
+    <string name="agent_operation_action_droidbridge">DroidBridge installation</string>
     <string name="agent_operation_failed">Operation failed (exit code %1$d).</string>
     <string name="agent_operation_failed_detail">Operation failed: %1$s</string>
     <string name="agent_operation_prepare_failed">Failed to prepare agent VM.</string>
@@ -916,6 +917,11 @@
     <string name="agent_operation_error_filesystem_mount">The filesystem could not be mounted for resizing.</string>
     <string name="agent_operation_error_filesystem_grow">The partition was enlarged, but growing its filesystem failed.</string>
     <string name="agent_operation_error_filesystem_unmount">The filesystem was grown, but it could not be unmounted safely.</string>
+    <string name="agent_operation_error_droidbridge_root">The Linux root filesystem could not be found.</string>
+    <string name="agent_operation_error_droidbridge_mount">The DroidBridge payload could not be mounted in the rescue VM.</string>
+    <string name="agent_operation_error_droidbridge_missing">The DroidBridge guest agent is missing from this build.</string>
+    <string name="agent_operation_error_droidbridge_install">The DroidBridge guest agent could not be installed.</string>
+    <string name="agent_operation_error_droidbridge_init">This Linux image uses an init system DroidBridge does not support yet.</string>
     <string name="agent_operation_error_unknown">Rescue error: %1$s</string>
 
     <string name="disk_resize">Resize</string>
