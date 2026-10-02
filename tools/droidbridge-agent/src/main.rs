@@ -445,7 +445,10 @@ fn graphical_session() -> Option<GraphicalSession> {
     if let Some(session) = inherited_wayland_session() {
         return Some(session);
     }
-    discover_wayland_session()
+    if let Some(session) = discover_wayland_session() {
+        return Some(session);
+    }
+    discover_process_graphical_session()
 }
 
 fn inherited_wayland_session() -> Option<GraphicalSession> {
@@ -506,6 +509,133 @@ fn discover_wayland_session() -> Option<GraphicalSession> {
         }
     }
     None
+}
+
+
+fn discover_process_graphical_session() -> Option<GraphicalSession> {
+    let mut processes = fs::read_dir("/proc").ok()?
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let pid = entry.file_name().to_string_lossy().parse::<u32>().ok()?;
+            let meta = entry.metadata().ok()?;
+            if !meta.is_dir() {
+                return None;
+            }
+            Some((meta.uid(), pid, entry.path()))
+        })
+        .collect::<Vec<_>>();
+
+    // Prefer an ordinary user's desktop over a root-owned compositor, then a stable pid order.
+    processes.sort_by_key(|(uid, pid, _)| (*uid == 0, *uid, *pid));
+    for (uid, _, proc_dir) in processes {
+        let raw = match fs::read(proc_dir.join("environ")) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        let vars = parse_nul_environment(&raw);
+        if let Some(session) = graphical_session_from_environment(uid, &vars) {
+            return Some(session);
+        }
+    }
+    None
+}
+
+fn parse_nul_environment(raw: &[u8]) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    for entry in raw.split(|b| *b == 0) {
+        if entry.is_empty() {
+            continue;
+        }
+        let text = match std::str::from_utf8(entry) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        let Some((key, value)) = text.split_once('=') else {
+            continue;
+        };
+        if !key.is_empty() {
+            out.insert(key.to_string(), value.to_string());
+        }
+    }
+    out
+}
+
+fn graphical_session_from_environment(
+    uid: u32,
+    envs: &BTreeMap<String, String>,
+) -> Option<GraphicalSession> {
+    if let (Some(runtime), Some(display)) =
+        (envs.get("XDG_RUNTIME_DIR"), envs.get("WAYLAND_DISPLAY"))
+    {
+        let socket = if Path::new(display).is_absolute() {
+            PathBuf::from(display)
+        } else {
+            PathBuf::from(runtime).join(display)
+        };
+        if fs::metadata(&socket)
+            .map(|meta| meta.file_type().is_socket())
+            .unwrap_or(false)
+        {
+            let mut session = session_for_wayland(uid, uid, runtime.clone(), display.clone());
+            copy_optional_session_vars(&mut session, envs);
+            return Some(session);
+        }
+    }
+
+    let display = envs.get("DISPLAY")?;
+    if !x11_display_exists(display) {
+        return None;
+    }
+    let identity = passwd_identity(uid);
+    let gid = identity.as_ref().map(|v| v.1).unwrap_or(uid);
+    let mut session = GraphicalSession {
+        backend: "x11",
+        uid,
+        gid,
+        home: identity.as_ref().map(|v| v.2.clone()),
+        user: identity.as_ref().map(|v| v.0.clone()),
+        vars: vec![(OsString::from("DISPLAY"), OsString::from(display))],
+    };
+    copy_optional_session_vars(&mut session, envs);
+    Some(session)
+}
+
+fn copy_optional_session_vars(
+    session: &mut GraphicalSession,
+    envs: &BTreeMap<String, String>,
+) {
+    for key in [
+        "DISPLAY",
+        "XAUTHORITY",
+        "XDG_RUNTIME_DIR",
+        "DBUS_SESSION_BUS_ADDRESS",
+        "WAYLAND_DISPLAY",
+    ] {
+        let Some(value) = envs.get(key) else {
+            continue;
+        };
+        if value.is_empty() || session.vars.iter().any(|(existing, _)| existing == key) {
+            continue;
+        }
+        session.vars.push((OsString::from(key), OsString::from(value)));
+    }
+}
+
+fn x11_display_exists(display: &str) -> bool {
+    let local = display
+        .strip_prefix(':')
+        .or_else(|| display.strip_prefix("unix:"))
+        .and_then(|value| value.split('.').next());
+    let Some(number) = local else {
+        // A TCP/remote DISPLAY may be valid but should not be guessed by a system service.
+        return false;
+    };
+    if number.is_empty() || !number.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    fs::metadata(Path::new("/tmp/.X11-unix").join(format!("X{number}")))
+        .map(|meta| meta.file_type().is_socket())
+        .unwrap_or(false)
 }
 
 fn session_for_wayland(
