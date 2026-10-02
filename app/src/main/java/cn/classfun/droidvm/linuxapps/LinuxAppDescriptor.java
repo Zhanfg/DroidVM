@@ -115,7 +115,6 @@ public final class LinuxAppDescriptor {
             throw new IllegalArgumentException("Invalid Linux app id");
         return value;
     }
-    }
 
     @NonNull
     private static String bounded(@NonNull String value, @NonNull String field) {
