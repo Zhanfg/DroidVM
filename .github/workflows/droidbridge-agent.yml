@@ -1,0 +1,20 @@
+name: DroidBridge Agent
+
+on:
+  push:
+    paths:
+      - "tools/droidbridge-agent/**"
+      - ".github/workflows/droidbridge-agent.yml"
+  pull_request:
+    paths:
+      - "tools/droidbridge-agent/**"
+      - ".github/workflows/droidbridge-agent.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run unit tests
+        run: cargo test --manifest-path tools/droidbridge-agent/Cargo.toml --locked
