@@ -104,12 +104,17 @@ public final class LinuxAppDescriptor {
         return value;
     }
 
+    public static boolean isValidAppId(@NonNull String value) {
+        return !value.isEmpty() && value.length() <= MAX_APP_ID
+            && value.matches("[A-Za-z0-9._:+@-]+");
+    }
+
     @NonNull
     private static String validateAppId(@NonNull String value) {
-        if (value.isEmpty() || value.length() > MAX_APP_ID
-            || !value.matches("[A-Za-z0-9._:+@-]+"))
+        if (!isValidAppId(value))
             throw new IllegalArgumentException("Invalid Linux app id");
         return value;
+    }
     }
 
     @NonNull
