@@ -206,3 +206,30 @@ Observed result:
 This validates the virtio-gpu device and non-accelerated scanout path on PJZ110. Hardware acceleration is not yet validated.
 
 Next staged test: virglrenderer in Native Context mode with DRM2KGSL, retaining SimpleFB as fallback and leaving PMU/SMT/VPU/USB/sound disabled.
+
+
+## Validated virglrenderer native DRM2KGSL stage (PJZ110)
+
+Validated on 2026-10-02 with the previously working Gunyah + network + RNG + SimpleFB + virtio-gpu baseline.
+
+Configuration:
+
+- virtio-gpu: enabled
+- renderer backend: virglrenderer
+- GPU mode: Native Context
+- provider: DRM2KGSL
+- SimpleFB: retained as fallback
+- PMU/SMT/VPU/USB/sound: disabled
+- network/RNG: enabled
+
+Observed result:
+
+- guest booted normally;
+- gpu-0 display remained usable at the same 1280x720 baseline;
+- Alpine userspace remained usable;
+- host Android remained responsive;
+- no user-visible regression versus the 2D stage was observed.
+
+This validates the Native Context + DRM2KGSL path functionally on PJZ110. Performance/acceleration quality is not yet benchmarked.
+
+Next staged test: virglrenderer + Vulkan (Venus) + Turnip, keeping SimpleFB enabled as fallback and leaving PMU/SMT/VPU/USB/sound disabled.
