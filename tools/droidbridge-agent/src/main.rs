@@ -1,0 +1,495 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+use serde::Serialize;
+use serde_json::{json, Value};
+use std::collections::BTreeMap;
+use std::env;
+use std::ffi::OsString;
+use std::fs::{self, File};
+use std::io::{self, BufRead, BufReader, Read, Write};
+use std::mem;
+use std::os::fd::FromRawFd;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+
+const DEFAULT_PORT: u32 = 4050;
+const VMADDR_CID_ANY: u32 = 0xffff_ffff;
+const MAX_FRAME: usize = 1024 * 1024;
+const MAX_ARGS: usize = 256;
+const MAX_ARG_LEN: usize = 64 * 1024;
+
+#[repr(C)]
+struct SockAddrVm {
+    family: libc::sa_family_t,
+    reserved1: u16,
+    port: u32,
+    cid: u32,
+    zero: [u8; 4],
+}
+
+#[derive(Clone, Debug)]
+struct DesktopApp {
+    app_id: String,
+    name: String,
+    generic_name: String,
+    icon_key: String,
+    terminal: bool,
+    desktop_file: PathBuf,
+    exec: String,
+    supports_files: bool,
+    supports_uris: bool,
+}
+
+#[derive(Serialize)]
+struct PublicApp<'a> {
+    app_id: &'a str,
+    name: &'a str,
+    generic_name: &'a str,
+    icon_key: &'a str,
+    terminal: bool,
+    supports_files: bool,
+    supports_uris: bool,
+}
+
+fn main() -> io::Result<()> {
+    let port = env::var("DROIDBRIDGE_PORT")
+        .ok()
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(DEFAULT_PORT);
+    let listener = bind_vsock(port)?;
+    eprintln!("droidbridge-agent: listening on vsock port {port}");
+
+    loop {
+        let fd = unsafe { libc::accept4(listener, std::ptr::null_mut(), std::ptr::null_mut(), libc::SOCK_CLOEXEC) };
+        if fd < 0 {
+            let e = io::Error::last_os_error();
+            if e.kind() == io::ErrorKind::Interrupted {
+                continue;
+            }
+            return Err(e);
+        }
+        std::thread::spawn(move || {
+            let mut stream = unsafe { File::from_raw_fd(fd) };
+            if let Err(e) = serve_client(&mut stream) {
+                eprintln!("droidbridge-agent: client error: {e}");
+            }
+        });
+    }
+}
+
+fn bind_vsock(port: u32) -> io::Result<libc::c_int> {
+    let fd = unsafe { libc::socket(libc::AF_VSOCK, libc::SOCK_STREAM | libc::SOCK_CLOEXEC, 0) };
+    if fd < 0 {
+        return Err(io::Error::last_os_error());
+    }
+
+    let addr = SockAddrVm {
+        family: libc::AF_VSOCK as libc::sa_family_t,
+        reserved1: 0,
+        port,
+        cid: VMADDR_CID_ANY,
+        zero: [0; 4],
+    };
+
+    let rc = unsafe {
+        libc::bind(
+            fd,
+            &addr as *const SockAddrVm as *const libc::sockaddr,
+            mem::size_of::<SockAddrVm>() as libc::socklen_t,
+        )
+    };
+    if rc < 0 {
+        let e = io::Error::last_os_error();
+        unsafe { libc::close(fd) };
+        return Err(e);
+    }
+    if unsafe { libc::listen(fd, 16) } < 0 {
+        let e = io::Error::last_os_error();
+        unsafe { libc::close(fd) };
+        return Err(e);
+    }
+    Ok(fd)
+}
+
+fn serve_client(stream: &mut File) -> io::Result<()> {
+    loop {
+        let frame = match read_frame(stream)? {
+            Some(v) => v,
+            None => return Ok(()),
+        };
+        let response = handle_request(frame);
+        write_frame(stream, &response)?;
+    }
+}
+
+fn read_frame(stream: &mut File) -> io::Result<Option<Value>> {
+    let mut len = [0u8; 4];
+    match stream.read_exact(&mut len) {
+        Ok(()) => {}
+        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
+        Err(e) => return Err(e),
+    }
+    let n = u32::from_be_bytes(len) as usize;
+    if n == 0 || n > MAX_FRAME {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid frame length"));
+    }
+    let mut payload = vec![0u8; n];
+    stream.read_exact(&mut payload)?;
+    serde_json::from_slice(&payload)
+        .map(Some)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+}
+
+fn write_frame(stream: &mut File, value: &Value) -> io::Result<()> {
+    let payload = serde_json::to_vec(value)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    if payload.len() > MAX_FRAME {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "response too large"));
+    }
+    stream.write_all(&(payload.len() as u32).to_be_bytes())?;
+    stream.write_all(&payload)?;
+    stream.flush()
+}
+
+fn handle_request(req: Value) -> Value {
+    let id = req.get("id").cloned();
+    let op = req.get("op").and_then(Value::as_str).unwrap_or("");
+    let result = match op {
+        "hello" => Ok(json!({
+            "op": "hello",
+            "version": 0,
+            "agent": "droidbridge-agent",
+            "capabilities": [
+                "apps.list",
+                "apps.launch"
+            ]
+        })),
+        "apps.list" => match scan_apps() {
+            Ok(apps) => {
+                let public: Vec<PublicApp<'_>> = apps.values().map(|a| PublicApp {
+                    app_id: &a.app_id,
+                    name: &a.name,
+                    generic_name: &a.generic_name,
+                    icon_key: &a.icon_key,
+                    terminal: a.terminal,
+                    supports_files: a.supports_files,
+                    supports_uris: a.supports_uris,
+                }).collect();
+                Ok(json!({ "apps": public }))
+            }
+            Err(e) => Err(("INTERNAL", e.to_string())),
+        },
+        "apps.launch" => launch_request(&req),
+        _ => Err(("INVALID_ARGUMENT", format!("unknown operation: {op}"))),
+    };
+
+    match result {
+        Ok(mut body) => {
+            if let Some(obj) = body.as_object_mut() {
+                obj.insert("ok".into(), Value::Bool(true));
+                if let Some(id) = id {
+                    obj.insert("id".into(), id);
+                }
+            }
+            body
+        }
+        Err((code, message)) => {
+            let mut out = json!({ "ok": false, "error": code, "message": message });
+            if let (Some(id), Some(obj)) = (id, out.as_object_mut()) {
+                obj.insert("id".into(), id);
+            }
+            out
+        }
+    }
+}
+
+fn scan_apps() -> io::Result<BTreeMap<String, DesktopApp>> {
+    let mut out = BTreeMap::new();
+    // Lower-priority directories first; user entries overwrite system entries with the same id.
+    let mut roots = vec![
+        PathBuf::from("/usr/share/applications"),
+        PathBuf::from("/usr/local/share/applications"),
+    ];
+    if let Some(home) = env::var_os("HOME") {
+        roots.push(PathBuf::from(home).join(".local/share/applications"));
+    }
+
+    for root in roots {
+        if !root.is_dir() {
+            continue;
+        }
+        visit_desktop_dir(&root, &root, &mut out)?;
+    }
+    Ok(out)
+}
+
+fn visit_desktop_dir(
+    root: &Path,
+    dir: &Path,
+    out: &mut BTreeMap<String, DesktopApp>,
+) -> io::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = match entry {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+        let ty = match entry.file_type() {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if ty.is_dir() {
+            let _ = visit_desktop_dir(root, &path, out);
+            continue;
+        }
+        if path.extension().and_then(|s| s.to_str()) != Some("desktop") {
+            continue;
+        }
+        if let Ok(Some(app)) = parse_desktop(root, &path) {
+            out.insert(app.app_id.clone(), app);
+        }
+    }
+    Ok(())
+}
+
+fn parse_desktop(root: &Path, path: &Path) -> io::Result<Option<DesktopApp>> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut in_entry = false;
+    let mut kv = BTreeMap::<String, String>::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if line.starts_with('[') && line.ends_with(']') {
+            in_entry = line == "[Desktop Entry]";
+            continue;
+        }
+        if !in_entry {
+            continue;
+        }
+        if let Some((k, v)) = line.split_once('=') {
+            kv.entry(k.trim().to_string()).or_insert_with(|| v.to_string());
+        }
+    }
+
+    if kv.get("Type").map(String::as_str) != Some("Application")
+        || parse_bool(kv.get("Hidden"))
+        || parse_bool(kv.get("NoDisplay"))
+    {
+        return Ok(None);
+    }
+
+    let exec = match kv.get("Exec") {
+        Some(v) if !v.trim().is_empty() => v.trim().to_string(),
+        _ => return Ok(None),
+    };
+    let name = kv.get("Name").cloned().unwrap_or_else(|| desktop_id(root, path));
+    let app_id = desktop_id(root, path);
+    let supports_files = exec.contains("%f") || exec.contains("%F");
+    let supports_uris = exec.contains("%u") || exec.contains("%U");
+
+    Ok(Some(DesktopApp {
+        app_id,
+        name,
+        generic_name: kv.get("GenericName").cloned().unwrap_or_default(),
+        icon_key: kv.get("Icon").cloned().unwrap_or_default(),
+        terminal: parse_bool(kv.get("Terminal")),
+        desktop_file: path.to_path_buf(),
+        exec,
+        supports_files,
+        supports_uris,
+    }))
+}
+
+fn desktop_id(root: &Path, path: &Path) -> String {
+    let rel = path.strip_prefix(root).unwrap_or(path);
+    let mut id = rel.to_string_lossy().replace('/', "-");
+    if id.ends_with(".desktop") {
+        id.truncate(id.len() - ".desktop".len());
+    }
+    id
+}
+
+fn parse_bool(v: Option<&String>) -> bool {
+    matches!(v.map(|s| s.as_str()), Some("true") | Some("True") | Some("TRUE") | Some("1"))
+}
+
+fn launch_request(req: &Value) -> Result<Value, (&'static str, String)> {
+    let app_id = req.get("app_id")
+        .and_then(Value::as_str)
+        .ok_or(("INVALID_ARGUMENT", "app_id is required".into()))?;
+    if !valid_app_id(app_id) {
+        return Err(("INVALID_ARGUMENT", "invalid app_id".into()));
+    }
+
+    let apps = scan_apps().map_err(|e| ("INTERNAL", e.to_string()))?;
+    let app = apps.get(app_id)
+        .ok_or(("APP_NOT_FOUND", "desktop entry not found".into()))?;
+
+    let files = string_array(req.get("files"))?;
+    let uris = string_array(req.get("uris"))?;
+    let argv = expand_exec(app, &files, &uris)?;
+    if argv.is_empty() {
+        return Err(("APP_DISABLED", "desktop entry has no executable".into()));
+    }
+
+    let mut cmd = Command::new(&argv[0]);
+    cmd.args(&argv[1..])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+
+    let child = cmd.spawn().map_err(|e| ("APP_DISABLED", e.to_string()))?;
+    let launch_id = format!("{}-{}", child.id(), monotonic_hint());
+    Ok(json!({ "launch_id": launch_id, "pid": child.id() }))
+}
+
+fn string_array(value: Option<&Value>) -> Result<Vec<String>, (&'static str, String)> {
+    let Some(value) = value else { return Ok(Vec::new()) };
+    let Some(arr) = value.as_array() else {
+        return Err(("INVALID_ARGUMENT", "files/uris must be arrays".into()));
+    };
+    if arr.len() > 64 {
+        return Err(("INVALID_ARGUMENT", "too many files/uris".into()));
+    }
+    let mut out = Vec::with_capacity(arr.len());
+    for v in arr {
+        let Some(s) = v.as_str() else {
+            return Err(("INVALID_ARGUMENT", "files/uris must contain strings".into()));
+        };
+        if s.len() > MAX_ARG_LEN {
+            return Err(("INVALID_ARGUMENT", "file/uri is too long".into()));
+        }
+        out.push(s.to_string());
+    }
+    Ok(out)
+}
+
+fn expand_exec(
+    app: &DesktopApp,
+    files: &[String],
+    uris: &[String],
+) -> Result<Vec<OsString>, (&'static str, String)> {
+    let tokens = split_exec(&app.exec)
+        .map_err(|e| ("APP_DISABLED", e))?;
+    let mut out: Vec<OsString> = Vec::new();
+
+    for token in tokens {
+        match token.as_str() {
+            "%f" => {
+                if let Some(v) = files.first() { out.push(v.into()); }
+            }
+            "%F" => out.extend(files.iter().map(OsString::from)),
+            "%u" => {
+                if let Some(v) = uris.first() { out.push(v.into()); }
+            }
+            "%U" => out.extend(uris.iter().map(OsString::from)),
+            "%i" => {
+                if !app.icon_key.is_empty() {
+                    out.push("--icon".into());
+                    out.push(app.icon_key.clone().into());
+                }
+            }
+            _ => {
+                let expanded = token
+                    .replace("%%", "%")
+                    .replace("%c", &app.name)
+                    .replace("%k", &app.desktop_file.to_string_lossy());
+                // Unknown field codes are intentionally rejected instead of guessed.
+                if contains_field_code(&expanded) {
+                    return Err(("APP_DISABLED", format!("unsupported Exec field code in {expanded}")));
+                }
+                if !expanded.is_empty() {
+                    out.push(expanded.into());
+                }
+            }
+        }
+        if out.len() > MAX_ARGS {
+            return Err(("INVALID_ARGUMENT", "expanded argument list is too large".into()));
+        }
+    }
+    Ok(out)
+}
+
+fn contains_field_code(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    for i in 0..bytes.len().saturating_sub(1) {
+        if bytes[i] == b'%' && bytes[i + 1].is_ascii_alphabetic() {
+            return true;
+        }
+    }
+    false
+}
+
+/// Minimal Exec= tokenizer: no shell, no substitutions, only quoting/backslash grouping.
+fn split_exec(input: &str) -> Result<Vec<String>, String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut chars = input.chars().peekable();
+    let mut quote: Option<char> = None;
+
+    while let Some(ch) = chars.next() {
+        match (quote, ch) {
+            (None, '\'') | (None, '"') => quote = Some(ch),
+            (Some(q), c) if c == q => quote = None,
+            (_, '\\') => {
+                let next = chars.next().ok_or_else(|| "trailing backslash in Exec".to_string())?;
+                cur.push(next);
+            }
+            (None, c) if c.is_whitespace() => {
+                if !cur.is_empty() {
+                    out.push(mem::take(&mut cur));
+                }
+            }
+            (_, c) => cur.push(c),
+        }
+    }
+    if quote.is_some() {
+        return Err("unterminated quote in Exec".into());
+    }
+    if !cur.is_empty() {
+        out.push(cur);
+    }
+    Ok(out)
+}
+
+fn valid_app_id(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 255
+        && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"._:+@-".contains(&b))
+}
+
+fn monotonic_hint() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tokenizes_without_shell() {
+        assert_eq!(
+            split_exec("writer --title \"hello world\" %F").unwrap(),
+            vec!["writer", "--title", "hello world", "%F"]
+        );
+    }
+
+    #[test]
+    fn rejects_unterminated_quote() {
+        assert!(split_exec("writer \"oops").is_err());
+    }
+
+    #[test]
+    fn app_id_is_narrow() {
+        assert!(valid_app_id("org.example.App"));
+        assert!(!valid_app_id("org.example.App;rm"));
+    }
+}
