@@ -2,6 +2,8 @@
 // Copyright DroidVM contributors
 package cn.classfun.droidvm.ui.agent.droidbridge;
 
+import static cn.classfun.droidvm.lib.utils.StringUtils.fmt;
+
 import androidx.annotation.NonNull;
 
 import cn.classfun.droidvm.linuxapps.DroidBridgeGuestTools;
@@ -49,13 +51,13 @@ public final class DroidBridgeInstallAction extends BaseAction {
             "PAYLOAD=/run/droidbridge-tools",
             "mkdir -p \"$PAYLOAD\"",
             "modprobe virtiofs >/dev/null 2>&1 || true",
-            "mount -t virtiofs " + DroidBridgeGuestTools.SHARE_TAG
-                + " \"$PAYLOAD\" >/dev/null 2>&1 || fail DROIDBRIDGE_PAYLOAD_MOUNT_FAILED", // concat-ok: fixed compile-time share tag
-            "[ -x \"$PAYLOAD/" + DroidBridgeGuestTools.AGENT_NAME
-                + "\" ] || fail DROIDBRIDGE_PAYLOAD_MISSING", // concat-ok: fixed compile-time file name
+            fmt("mount -t virtiofs %s \"$PAYLOAD\" >/dev/null 2>&1 || fail DROIDBRIDGE_PAYLOAD_MOUNT_FAILED",
+                DroidBridgeGuestTools.SHARE_TAG),
+            fmt("[ -x \"$PAYLOAD/%s\" ] || fail DROIDBRIDGE_PAYLOAD_MISSING",
+                DroidBridgeGuestTools.AGENT_NAME),
             "mkdir -p /mnt/usr/libexec || fail DROIDBRIDGE_INSTALL_FAILED",
-            "cp \"$PAYLOAD/" + DroidBridgeGuestTools.AGENT_NAME
-                + "\" /mnt/usr/libexec/droidbridge-agent || fail DROIDBRIDGE_INSTALL_FAILED", // concat-ok: fixed compile-time file name
+            fmt("cp \"$PAYLOAD/%s\" /mnt/usr/libexec/droidbridge-agent || fail DROIDBRIDGE_INSTALL_FAILED",
+                DroidBridgeGuestTools.AGENT_NAME),
             "chmod 0755 /mnt/usr/libexec/droidbridge-agent || fail DROIDBRIDGE_INSTALL_FAILED",
             "SERVICE_KIND=",
             "if [ -d /mnt/etc/systemd/system ] || [ -d /mnt/usr/lib/systemd/system ]; then",
