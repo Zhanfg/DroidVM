@@ -101,7 +101,7 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
         root.addView(status, lp);
 
         setContentView(root);
-        showStatus("Preparing Linux application…", true);
+        showStatus("Preparing Linux application...", true);
     }
 
     private void loadLaunchTarget() {
@@ -125,7 +125,7 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
                     "The Linux environment no longer exists");
                 mainHandler.post(() -> {
                     setTitle(app.name);
-                    showStatus("Waking " + app.name + "…", true);
+                    showStatus("Waking " + app.name + "...", true);
                     DaemonConnection.getInstance().connect();
                     queryVmState(0);
                 });
@@ -160,7 +160,7 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
             .onUnsuccessful(resp -> mainHandler.post(() ->
                 retryOrFail(attempt, resp.optString("message", "VM daemon rejected state query"))))
             .onError(error -> mainHandler.post(() ->
-                retryOrFail(attempt, "Waiting for DroidTerminal daemon…")))
+                retryOrFail(attempt, "Waiting for DroidTerminal daemon...")))
             .invoke();
     }
 
@@ -180,21 +180,21 @@ public final class LinuxAppLaunchActivity extends AppCompatActivity implements F
                 enqueueLaunch();
                 break;
             case SUSPENDED:
-                showStatus("Resuming Linux environment…", true);
+                showStatus("Resuming Linux environment...", true);
                 VMActions.sendCommand(
                     "vm_resume", vmId, mainHandler, UIContext.fromActivity(this));
                 break;
             case STARTING:
             case REBOOTING:
-                showStatus("Waiting for Linux environment…", true);
+                showStatus("Waiting for Linux environment...", true);
                 break;
             case STOPPING:
-                showStatus("Linux environment is stopping; waiting…", true);
+                showStatus("Linux environment is stopping; waiting...", true);
                 mainHandler.postDelayed(() -> queryVmState(0), 800);
                 break;
             case STOPPED:
             default:
-                showStatus("Starting Linux environment…", true);
+                showStatus("Starting Linux environment...", true);
                 // Reuse the mature preflight chain: disk-safety, guest protection, module, lend
                 // mode and huge-page checks all run before the daemon sees the VM.
                 VMActions.createAndStart(
