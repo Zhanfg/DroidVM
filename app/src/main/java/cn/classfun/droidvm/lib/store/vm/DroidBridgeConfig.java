@@ -4,6 +4,8 @@ package cn.classfun.droidvm.lib.store.vm;
 
 import androidx.annotation.NonNull;
 
+import java.io.File;
+
 import java.util.UUID;
 
 import cn.classfun.droidvm.lib.store.base.DataItem;
@@ -31,6 +33,15 @@ public final class DroidBridgeConfig {
 
     public static void setEnabled(@NonNull DataItem item, boolean enabled) {
         item.set(KEY_ENABLED, enabled);
+    }
+
+    /**
+     * The current Linux/Android crosvm vsock backend is vhost-vsock, so the host node must exist.
+     * This is a pure capability check: it never opens the device and is safe to call from UI or
+     * daemon code.
+     */
+    public static boolean hostVsockAvailable() {
+        return new File("/dev/vhost-vsock").exists();
     }
 
     /**
