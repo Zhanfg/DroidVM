@@ -1744,4 +1744,13 @@
     <!-- U+1F512, as an entity: the base file stays ASCII (scripts/ci/check_ascii.py). -->
     <string name="usb_devices_locked_fmt" translatable="false">&#128274; %1$s</string>
     <string name="usb_devices_idle_kept">يبقى %1$s مع المضيف: تعذر على أحد برامج التشغيل تحريره، لذا لن يتحول إلى خامل إلا عند فصله</string>
+    <string name="linux_apps_title">تطبيقات Linux</string>
+    <string name="linux_apps_empty">لم يتم اكتشاف تطبيقات Linux بعد. شغّل بيئة Linux مفعّل فيها DroidBridge ثم حدّث القائمة.</string>
+    <string name="linux_apps_launch">فتح</string>
+    <string name="linux_apps_pin">إضافة إلى الشاشة الرئيسية</string>
+    <string name="linux_apps_pin_unavailable">المشغّل الحالي لا يدعم الاختصارات المثبتة.</string>
+    <string name="linux_apps_vm">بيئة Linux: %1$s</string>
+    <string name="linux_apps_detail">%1$s\nبيئة Linux: %2$s</string>
+    <string name="linux_apps_refresh_none">لم يتم العثور على بيئة Linux قيد التشغيل ومفعّل فيها DroidBridge.</string>
+    <string name="linux_apps_refresh_result">اكتمل تحديث تطبيقات Linux: تم تحديث %1$d وفشل %2$d.</string>
 </resources>
