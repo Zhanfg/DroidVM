@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::ffi::OsString;
 use std::fs::{self, File, OpenOptions};
@@ -292,22 +292,48 @@ fn handle_request(req: Value) -> Value {
 
 fn scan_apps() -> io::Result<BTreeMap<String, DesktopApp>> {
     let mut out = BTreeMap::new();
-    // Lower-priority directories first; user entries overwrite system entries with the same id.
-    let mut roots = vec![
-        PathBuf::from("/usr/share/applications"),
-        PathBuf::from("/usr/local/share/applications"),
-    ];
-    if let Some(home) = env::var_os("HOME") {
-        roots.push(PathBuf::from(home).join(".local/share/applications"));
-    }
-
-    for root in roots {
+    for root in application_roots() {
         if !root.is_dir() {
             continue;
         }
         visit_desktop_dir(&root, &root, &mut out)?;
     }
     Ok(out)
+}
+
+fn application_roots() -> Vec<PathBuf> {
+    // Lower-priority directories first; per-user entries overwrite system entries with the same
+    // desktop id. The agent is a system service, so HOME alone normally points at /root and would
+    // otherwise miss applications installed by the actual desktop user.
+    let mut roots = BTreeSet::new();
+    roots.insert(PathBuf::from("/usr/share/applications"));
+    roots.insert(PathBuf::from("/usr/local/share/applications"));
+
+    if let Some(home) = env::var_os("HOME") {
+        roots.insert(PathBuf::from(home).join(".local/share/applications"));
+    }
+
+    if let Ok(passwd) = fs::read_to_string("/etc/passwd") {
+        for line in passwd.lines() {
+            let fields = line.split(':').collect::<Vec<_>>();
+            if fields.len() < 7 {
+                continue;
+            }
+            let uid = match fields[2].parse::<u32>() {
+                Ok(uid) => uid,
+                Err(_) => continue,
+            };
+            if uid < 1000 || uid == 65534 {
+                continue;
+            }
+            let home = Path::new(fields[5]);
+            if home.is_absolute() && home != Path::new("/") {
+                roots.insert(home.join(".local/share/applications"));
+            }
+        }
+    }
+
+    roots.into_iter().collect()
 }
 
 fn visit_desktop_dir(
