@@ -188,3 +188,21 @@ Observed result:
 This validates virtio RNG on the PJZ110 Gunyah pseudo-unprotected baseline.
 
 Next staged test: enable basic virtio-gpu while keeping SimpleFB enabled as a fallback, with accelerated renderers still disabled.
+
+
+## Validated virtio-gpu 2D stage (PJZ110)
+
+Validated on 2026-10-02 with the working Gunyah + network + RNG + SimpleFB baseline and virtio-gpu enabled using the software 2D renderer.
+
+Observed result:
+
+- gpu-0 display connected successfully at 1280x720;
+- Alpine console rendered on gpu-0;
+- guest userspace remained usable;
+- SimpleFB fallback remained available;
+- network and RNG remained functional;
+- host Android remained responsive.
+
+This validates the virtio-gpu device and non-accelerated scanout path on PJZ110. Hardware acceleration is not yet validated.
+
+Next staged test: virglrenderer in Native Context mode with DRM2KGSL, retaining SimpleFB as fallback and leaving PMU/SMT/VPU/USB/sound disabled.
