@@ -546,10 +546,17 @@ fn passwd_identity(uid: u32) -> Option<(String, u32, String)> {
         if fields.len() < 7 {
             continue;
         }
-        if fields[2].parse::<u32>().ok()? != uid {
+        let parsed_uid = match fields[2].parse::<u32>() {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if parsed_uid != uid {
             continue;
         }
-        let gid = fields[3].parse::<u32>().ok()?;
+        let gid = match fields[3].parse::<u32>() {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
         return Some((fields[0].to_string(), gid, fields[5].to_string()));
     }
     None
