@@ -141,3 +141,33 @@ Guest dmesg still prints:
 These messages did not prevent boot, virtio-blk operation, DHCP, routing, or external network reachability in this stage, so they are recorded as non-blocking observations rather than treated as the current failure cause.
 
 Next staged test: enable RNG only while keeping SimpleFB/GPU/USB/sound/PMU/SMT disabled.
+
+
+## Validated SimpleFB stage (PJZ110)
+
+Validated on 2026-10-02 with the previously working Gunyah + network baseline and SimpleFB enabled.
+
+Observed result:
+
+- DroidVM display connected successfully at 1280x720;
+- Alpine console rendered correctly in the app display;
+- serial console remained usable;
+- guest reached Alpine userspace and root shell;
+- network remained enabled from the previous stage;
+- host Android remained responsive.
+
+Working display-stage configuration:
+
+- virtio-gpu: disabled
+- SimpleFB: enabled
+- display resolution: 1280x720
+- refresh rate: 60 Hz
+- native display/export path: app display
+- VPU: disabled
+
+This confirms a usable framebuffer/display path on PJZ110 over DroidVM's crosvm + Gunyah pseudo-unprotected configuration. It does not yet validate virtio-gpu/VirGL/GfxStream.
+
+Next staged tests:
+1. RNG only;
+2. then virtio-gpu with SimpleFB retained as fallback;
+3. only after virtio-gpu is stable, test accelerated renderers one at a time.
