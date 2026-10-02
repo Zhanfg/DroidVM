@@ -494,8 +494,13 @@ public final class CrosvmBackendInstance extends VMBackendInstance {
         buildDiskCommand(args);
         buildNetCommand(args);
         if (DroidBridgeConfig.isEnabled(item)) {
-            args.add("--vsock");
-            args.add(fmt("cid=%d", DroidBridgeConfig.cidFor(config)));
+            if (DroidBridgeConfig.hostVsockAvailable()) {
+                args.add("--vsock");
+                args.add(fmt("cid=%d", DroidBridgeConfig.cidFor(config)));
+            } else {
+                Log.w(TAG, "DroidBridge enabled but /dev/vhost-vsock is unavailable; "
+                    + "starting the VM without vsock"); // concat-ok: one log message
+            }
         }
         buildSharedDirCommand(args);
         buildGpuCommand(args);
