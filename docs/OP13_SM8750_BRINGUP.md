@@ -118,3 +118,26 @@ Enable one subsystem at a time and keep the last known-good config available:
 4. USB/sound only if needed;
 5. PMU/SMT last;
 6. hugepage reserve module only if logs show an actual memory-pinning/fragmentation failure.
+
+
+## Validated network stage (PJZ110)
+
+Validated on 2026-10-02 with the minimal baseline plus one DroidVM bridge NIC.
+
+Observed in the Alpine guest:
+
+- eth0 present and UP;
+- DHCP IPv4 lease acquired: 192.168.82.128/24;
+- default route via 192.168.82.1;
+- ICMP to 1.1.1.1 succeeded with 0% packet loss;
+- IPv6 link-local/global addresses were also assigned;
+- guest remained usable and root shell stayed responsive.
+
+Guest dmesg still prints:
+
+- `gunyah: RM rejected message 00000005. Error: -1`
+- `gunyah: Error in returning log: -95`
+
+These messages did not prevent boot, virtio-blk operation, DHCP, routing, or external network reachability in this stage, so they are recorded as non-blocking observations rather than treated as the current failure cause.
+
+Next staged test: enable RNG only while keeping SimpleFB/GPU/USB/sound/PMU/SMT disabled.
