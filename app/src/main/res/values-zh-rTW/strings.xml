@@ -1680,4 +1680,13 @@
     <string name="usb_devices_action_failed_title">裝置沒有移動</string>
     <string name="usb_devices_target_claimed">被其他程式占用</string>
     <string name="usb_devices_idle_kept">%1$s 留在主機：有驅動不肯卸載，要拔掉重插才會回到 Idle</string>
+    <string name="linux_apps_title">Linux 應用程式</string>
+    <string name="linux_apps_empty">尚未發現 Linux 應用程式。請啟動已啟用 DroidBridge 的 Linux 環境後重新整理。</string>
+    <string name="linux_apps_launch">開啟</string>
+    <string name="linux_apps_pin">加入主畫面</string>
+    <string name="linux_apps_pin_unavailable">目前的桌面不支援固定捷徑。</string>
+    <string name="linux_apps_vm">Linux 環境：%1$s</string>
+    <string name="linux_apps_detail">%1$s\nLinux 環境：%2$s</string>
+    <string name="linux_apps_refresh_none">找不到正在執行且已啟用 DroidBridge 的 Linux 環境。</string>
+    <string name="linux_apps_refresh_result">Linux 應用程式重新整理完成：%1$d 個已更新，%2$d 個失敗。</string>
 </resources>
