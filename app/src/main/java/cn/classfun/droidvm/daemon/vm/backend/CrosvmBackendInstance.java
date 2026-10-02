@@ -43,7 +43,6 @@ import cn.classfun.droidvm.daemon.vm.VMBackendInstance;
 import cn.classfun.droidvm.daemon.vm.VMStartResult;
 import cn.classfun.droidvm.daemon.audio.HostAudioTable;
 import cn.classfun.droidvm.lib.data.HostAudioDevices;
-import cn.classfun.droidvm.linuxapps.DroidBridgeVmConfig;
 import cn.classfun.droidvm.lib.natives.NativeProcess;
 import cn.classfun.droidvm.lib.utils.RunUtils;
 import cn.classfun.droidvm.lib.store.base.DataItem;
@@ -126,9 +125,6 @@ public final class CrosvmBackendInstance extends VMBackendInstance {
             var name = port.getStreamName();
             if (serialStreams.containsKey(name)) continue;
             var stream = new FDPipeConsoleStream(config, name, -1, -1);
-            if (DroidBridgeVmConfig.isEnabled(config)
-                && name.equals(config.item.optString(DroidBridgeVmConfig.STREAM_KEY, "")))
-                stream.setPersistentLogEnabled(false);
             serialStreams.put(name, stream);
             addStream(stream);
         }
