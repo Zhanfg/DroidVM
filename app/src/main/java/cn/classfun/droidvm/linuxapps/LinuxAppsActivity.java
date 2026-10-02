@@ -10,7 +10,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
@@ -32,15 +31,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import cn.classfun.droidvm.R;
 import cn.classfun.droidvm.lib.daemon.DaemonConnection;
 import cn.classfun.droidvm.lib.store.vm.DroidBridgeConfig;
-import cn.classfun.droidvm.lib.store.vm.VMConfig;
 import cn.classfun.droidvm.lib.store.vm.VMStore;
 
 /**
@@ -124,7 +119,7 @@ public final class LinuxAppsActivity extends AppCompatActivity {
 
         var title = new TextView(this);
         title.setText(app.name.isEmpty() ? app.appId : app.name);
-        title.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
+        title.setTextSize(18);
         body.addView(title);
 
         var detail = new TextView(this);
