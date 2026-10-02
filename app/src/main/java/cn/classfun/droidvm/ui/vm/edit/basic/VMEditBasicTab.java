@@ -33,6 +33,7 @@ import cn.classfun.droidvm.R;
 import cn.classfun.droidvm.lib.store.base.DataItem;
 import cn.classfun.droidvm.lib.store.vm.CpuPlacementDraft;
 import cn.classfun.droidvm.lib.store.vm.CpuPlacementPlan;
+import cn.classfun.droidvm.lib.store.vm.DroidBridgeConfig;
 import cn.classfun.droidvm.lib.store.vm.LendMthpMode;
 import cn.classfun.droidvm.lib.store.vm.ProtectedVM;
 import cn.classfun.droidvm.lib.store.vm.VMBackend;
@@ -63,6 +64,7 @@ public final class VMEditBasicTab extends VMEditBaseTab {
     private SwitchRowWidget swSandbox;
     private SwitchRowWidget swHugepages;
     private SwitchRowWidget swDebug;
+    private SwitchRowWidget swDroidBridge;
     private ChooseRowWidget choosePrepareLendMthp;
     private ChooseRowWidget chooseProtectedVm;
     private ChooseRowWidget chooseBackend;
@@ -108,6 +110,7 @@ public final class VMEditBasicTab extends VMEditBaseTab {
         swSandbox = view.findViewById(R.id.sw_sandbox);
         swHugepages = view.findViewById(R.id.sw_hugepages);
         swDebug = view.findViewById(R.id.sw_debug);
+        swDroidBridge = view.findViewById(R.id.sw_droidbridge);
         choosePrepareLendMthp = view.findViewById(R.id.choose_prepare_lend_mthp);
         chooseProtectedVm = view.findViewById(R.id.choose_protected_vm);
         chooseBackend = view.findViewById(R.id.choose_backend);
@@ -138,6 +141,7 @@ public final class VMEditBasicTab extends VMEditBaseTab {
         swSandbox.setChecked(false);
         swHugepages.setChecked(VMConfig.NEW_VM_DEFAULT_HUGEPAGES);
         swDebug.setChecked(false);
+        swDroidBridge.setChecked(false);
         chooseProtectedVm.configure(
             ProtectedVM.class, VMConfig.NEW_VM_DEFAULT_PROTECTED_VM);
         chooseBackend.configure(VMBackend.class, VMBackend.DEFAULT);
@@ -187,6 +191,7 @@ public final class VMEditBasicTab extends VMEditBaseTab {
         swSandbox.setChecked(item.optBoolean("sandbox", false));
         swHugepages.setChecked(item.optBoolean("hugepages", false));
         swDebug.setChecked(item.optBoolean("strace", false));
+        swDroidBridge.setChecked(DroidBridgeConfig.isEnabled(item));
         choosePrepareLendMthp.setSelectedItem(LendMthpMode.fromItem(item));
         chooseProtectedVm.setSelectedItem(optEnum(item, "protected_vm", PROTECTED_WITHOUT_FIRMWARE));
         chooseBackend.setSelectedItem(optEnum(item, "backend", VMBackend.DEFAULT));
@@ -472,6 +477,7 @@ public final class VMEditBasicTab extends VMEditBaseTab {
         item.set("sandbox", swSandbox.isChecked());
         item.set("hugepages", swHugepages.isChecked());
         item.set("strace", swDebug.isChecked());
+        DroidBridgeConfig.setEnabled(item, swDroidBridge.isChecked());
         LendMthpMode lendMthpMode = choosePrepareLendMthp.getSelectedItem();
         item.set(LendMthpMode.KEY, lendMthpMode);
         ProtectedVM pvm = chooseProtectedVm.getSelectedItem();
