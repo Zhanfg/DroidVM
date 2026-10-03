@@ -50,6 +50,7 @@ import cn.classfun.droidvm.lib.store.disk.DiskBus;
 import cn.classfun.droidvm.lib.store.vm.CpuPlacementPlan;
 import cn.classfun.droidvm.lib.store.vm.DisplayExporter;
 import cn.classfun.droidvm.lib.store.vm.DisplayTransportCap;
+import cn.classfun.droidvm.lib.store.vm.DroidBridgeConfig;
 import cn.classfun.droidvm.lib.store.vm.GpuApi;
 import cn.classfun.droidvm.lib.store.vm.GpuMode;
 import cn.classfun.droidvm.lib.store.vm.GuestPoolSizing;
@@ -119,11 +120,15 @@ public final class CrosvmBackendInstance extends VMBackendInstance {
         // One text console per app-console serial port. Registered here, like the old fixed
         // "uart" stream, so the stream list is stable across VM restarts.
         VMSerialConfig.ensureDefaults(config.item);
+        DroidBridgeConfig.prepareSessionTransport(config.item);
         for (var port : VMSerialConfig.listOf(config.item)) {
             if (port.getBackend() != SerialBackend.APP_CONSOLE) continue;
             var name = port.getStreamName();
             if (serialStreams.containsKey(name)) continue;
             var stream = new FDPipeConsoleStream(config, name, -1, -1);
+            if (DroidBridgeConfig.isSerialFallbackActive(config.item)
+                && DroidBridgeConfig.SERIAL_STREAM.equals(name))
+                stream.setPersistentLogEnabled(false);
             serialStreams.put(name, stream);
             addStream(stream);
         }
@@ -492,6 +497,15 @@ public final class CrosvmBackendInstance extends VMBackendInstance {
         }
         buildDiskCommand(args);
         buildNetCommand(args);
+        if (DroidBridgeConfig.isEnabled(item)) {
+            if (DroidBridgeConfig.hostVsockAvailable()) {
+                args.add("--vsock");
+                args.add(fmt("cid=%d", DroidBridgeConfig.cidFor(config)));
+            } else {
+                Log.w(TAG, "DroidBridge enabled but /dev/vhost-vsock is unavailable; "
+                    + "starting the VM without vsock"); // concat-ok: one log message
+            }
+        }
         buildSharedDirCommand(args);
         buildGpuCommand(args);
         buildScreenExportersCommand(args);

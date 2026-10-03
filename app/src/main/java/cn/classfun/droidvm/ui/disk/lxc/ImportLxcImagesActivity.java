@@ -85,6 +85,7 @@ import cn.classfun.droidvm.lib.store.base.DataItem;
 import cn.classfun.droidvm.lib.store.disk.DiskBus;
 import cn.classfun.droidvm.lib.store.disk.DiskStore;
 import cn.classfun.droidvm.lib.store.network.NetworkStore;
+import cn.classfun.droidvm.lib.store.vm.DroidBridgeConfig;
 import cn.classfun.droidvm.lib.store.vm.VMConfig;
 import cn.classfun.droidvm.lib.store.vm.VMBackend;
 import cn.classfun.droidvm.lib.store.vm.VMHypervisor;
@@ -95,11 +96,13 @@ import cn.classfun.droidvm.lib.ui.NotificationPermission;
 import cn.classfun.droidvm.lib.ui.SimpleTextWatcher;
 import cn.classfun.droidvm.ui.agent.AgentOperationActivity;
 import cn.classfun.droidvm.ui.agent.autogrow.AutoGrowAction;
+import cn.classfun.droidvm.ui.agent.droidbridge.DroidBridgeInstallAction;
 import cn.classfun.droidvm.ui.agent.base.AgentVM;
 import cn.classfun.droidvm.ui.agent.password.ChangePasswordActivity;
 import cn.classfun.droidvm.ui.agent.password.PasswordAction;
 import cn.classfun.droidvm.ui.disk.action.BackingChainLinker;
 import cn.classfun.droidvm.ui.disk.create.DiskFormat;
+import cn.classfun.droidvm.linuxapps.DroidBridgeGuestTools;
 import cn.classfun.droidvm.ui.widgets.row.DropdownRowWidget;
 import cn.classfun.droidvm.ui.widgets.row.TextInputRowWidget;
 import cn.classfun.droidvm.ui.widgets.tools.DownloadWidget;
@@ -295,6 +298,7 @@ public class ImportLxcImagesActivity extends AppCompatActivity {
                     // A cancelled or crashed rescue VM says nothing about its actions.
                     linuxIncompleteSteps.add(PasswordAction.TYPE);
                     linuxIncompleteSteps.add(AutoGrowAction.TYPE);
+                    linuxIncompleteSteps.add(DroidBridgeInstallAction.TYPE);
                 }
                 createPendingLinuxVm();
             });
@@ -1789,6 +1793,7 @@ public class ImportLxcImagesActivity extends AppCompatActivity {
         if (pendingLinuxRootPassword.isEmpty()) {
             linuxIncompleteSteps.add(PasswordAction.TYPE);
             linuxIncompleteSteps.add(AutoGrowAction.TYPE);
+            linuxIncompleteSteps.add(DroidBridgeInstallAction.TYPE);
             createPendingLinuxVm();
             return;
         }
@@ -1805,6 +1810,16 @@ public class ImportLxcImagesActivity extends AppCompatActivity {
             password.setOptional(true);
             var autoGrow = new AutoGrowAction(agentVM);
             autoGrow.setOptional(true);
+            try {
+                var payloadDir = DroidBridgeGuestTools.preparePayloadDir(this);
+                agentVM.addSharedDir(
+                    DroidBridgeGuestTools.SHARE_TAG, payloadDir.getAbsolutePath());
+                var droidBridge = new DroidBridgeInstallAction(agentVM);
+                droidBridge.setOptional(true);
+            } catch (Exception e) {
+                Log.w(TAG, "DroidBridge guest payload is unavailable", e);
+                linuxIncompleteSteps.add(DroidBridgeInstallAction.TYPE);
+            }
             agentVM.addDisk(disk);
             var intent = AgentOperationActivity.createIntent(this, agentVM);
             intent.putExtra(AgentOperationActivity.EXTRA_AUTOFINISH_ON_SUCCESS, true);
@@ -1814,6 +1829,7 @@ public class ImportLxcImagesActivity extends AppCompatActivity {
             Log.e(TAG, "Failed to start Linux VM maintenance", e);
             linuxIncompleteSteps.add(PasswordAction.TYPE);
             linuxIncompleteSteps.add(AutoGrowAction.TYPE);
+            linuxIncompleteSteps.add(DroidBridgeInstallAction.TYPE);
             createPendingLinuxVm();
         }
     }
@@ -1848,6 +1864,8 @@ public class ImportLxcImagesActivity extends AppCompatActivity {
                 networks.append(network);
             }
             config.item.set("networks", networks);
+            DroidBridgeConfig.setEnabled(
+                config.item, !linuxIncompleteSteps.contains(DroidBridgeInstallAction.TYPE));
             var vmStore = new VMStore();
             vmStore.load(this);
             vmStore.add(config);
@@ -1901,6 +1919,8 @@ public class ImportLxcImagesActivity extends AppCompatActivity {
                 return getString(R.string.agent_operation_action_password);
             case AutoGrowAction.TYPE:
                 return getString(R.string.agent_operation_action_autogrow);
+            case DroidBridgeInstallAction.TYPE:
+                return getString(R.string.agent_operation_action_droidbridge);
             default:
                 return step;
         }

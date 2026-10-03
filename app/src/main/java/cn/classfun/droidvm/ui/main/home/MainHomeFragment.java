@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import cn.classfun.droidvm.R;
 import cn.classfun.droidvm.lib.daemon.DaemonConnection;
+import cn.classfun.droidvm.linuxapps.LinuxAppsActivity;
 import cn.classfun.droidvm.lib.daemon.DaemonHelper;
 import cn.classfun.droidvm.lib.data.QcomChipName;
 import cn.classfun.droidvm.lib.store.disk.DiskStore;
@@ -329,6 +330,15 @@ public final class MainHomeFragment extends MainBaseFragment
             return true;
         }
         return false;
+    }
+
+    @Override
+    public boolean onMenuItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.menu_linux_apps) {
+            startActivity(new Intent(requireContext(), LinuxAppsActivity.class));
+            return true;
+        }
+        return super.onMenuItemSelected(item);
     }
 
     private void navigateToTab(int navId) {

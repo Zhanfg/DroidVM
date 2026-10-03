@@ -51,14 +51,22 @@ import cn.classfun.droidvm.lib.daemon.DaemonConnection;
 import cn.classfun.droidvm.lib.daemon.ForegroundCallback;
 import cn.classfun.droidvm.lib.daemon.VMEventHandler;
 import cn.classfun.droidvm.lib.store.base.DataItem;
+import cn.classfun.droidvm.lib.store.disk.DiskStore;
 import cn.classfun.droidvm.lib.store.network.NetworkStore;
 import cn.classfun.droidvm.lib.store.vm.BootConfig;
+import cn.classfun.droidvm.lib.store.vm.DroidBridgeConfig;
 import cn.classfun.droidvm.lib.store.vm.ProtectedVM;
 import cn.classfun.droidvm.lib.store.vm.VMConfig;
 import cn.classfun.droidvm.lib.store.vm.VMState;
 import cn.classfun.droidvm.lib.store.vm.VMStore;
 import cn.classfun.droidvm.lib.ui.UIContext;
+import cn.classfun.droidvm.linuxapps.DroidBridgeGuestTools;
 import cn.classfun.droidvm.ui.vm.VMActions;
+import cn.classfun.droidvm.ui.agent.AgentOperationActivity;
+import cn.classfun.droidvm.ui.agent.base.AgentVM;
+import cn.classfun.droidvm.ui.agent.droidbridge.DroidBridgeInstallAction;
+import cn.classfun.droidvm.lib.store.vm.VMBackend;
+import cn.classfun.droidvm.lib.store.vm.VMHypervisor;
 import cn.classfun.droidvm.ui.vm.VMDeletion;
 import cn.classfun.droidvm.ui.vm.edit.VMEditActivity;
 import cn.classfun.droidvm.ui.markdown.MarkdownRender;
@@ -70,6 +78,32 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
     private final UIContext ui = UIContext.fromActivity(this);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean wantOpenConsole = new AtomicBoolean(false);
+    public VMState currentState = VMState.STOPPED;
+    public UUID vmId;
+    public VMConfig config;
+    public VMStore store;
+    private final ActivityResultLauncher<Intent> droidBridgeResultLauncher =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() != RESULT_OK || config == null) return;
+            runOnPool(() -> {
+                try {
+                    var latest = new VMStore();
+                    if (!latest.load(this)) return;
+                    var stored = latest.findById(vmId);
+                    if (stored == null) return;
+                    DroidBridgeConfig.setEnabled(stored.item, true);
+                    latest.save(this);
+                    config = stored;
+                    mainHandler.post(() -> {
+                        populateInfo();
+                        Toast.makeText(
+                            this, R.string.droidbridge_provision_success, LENGTH_SHORT).show();
+                    });
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to enable DroidBridge after provisioning", e);
+                }
+            });
+        });
     // Pre-start convert (decompress a crosvm-unreadable qcow2): run this once
     // the convert Activity returns RESULT_OK.
     @Nullable
@@ -95,6 +129,7 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
     private MaterialButton btnConsole;
     private MaterialButton btnEdit;
     private MaterialButton btnDelete;
+    private MaterialButton btnDroidBridge;
     private MaterialButton btnPowerBtn;
     private MaterialButton btnSleepBtn;
     private MaterialToolbar toolbar;
@@ -110,10 +145,6 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
     private CollapsibleContainer ccPortForwards;
     private LinearLayout containerPortForwards;
     private TextView tvPfEmpty;
-    public VMState currentState = VMState.STOPPED;
-    public UUID vmId;
-    public VMConfig config;
-    public VMStore store;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -128,6 +159,7 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
         btnConsole = findViewById(R.id.btn_console);
         btnEdit = findViewById(R.id.btn_edit);
         btnDelete = findViewById(R.id.btn_delete);
+        btnDroidBridge = findViewById(R.id.btn_droidbridge);
         btnPowerBtn = findViewById(R.id.btn_powerbtn);
         btnSleepBtn = findViewById(R.id.btn_sleepbtn);
         rowCpu = findViewById(R.id.row_cpu);
@@ -162,6 +194,7 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
         btnConsole.setOnClickListener(v -> toolConsole.showConsoleChooser());
         btnEdit.setOnClickListener(v -> openEdit());
         btnDelete.setOnClickListener(v -> doDelete());
+        btnDroidBridge.setOnClickListener(v -> doProvisionDroidBridge());
         btnPowerBtn.setOnClickListener(v ->
             sendControlCommand("powerbtn", vmId, mainHandler, ui));
         btnSleepBtn.setOnClickListener(v ->
@@ -352,6 +385,7 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
         }
         btnEdit.setEnabled(isStopped);
         btnDelete.setEnabled(isStopped);
+        btnDroidBridge.setEnabled(isStopped);
         btnPowerBtn.setEnabled(isActive);
         btnSleepBtn.setEnabled(isActive);
         if (isRunning) {
@@ -469,6 +503,49 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
         var intent = new Intent(this, VMEditActivity.class);
         intent.putExtra(VMEditActivity.EXTRA_VM_ID, vmId.toString());
         startActivity(intent);
+    }
+
+    private void doProvisionDroidBridge() {
+        if (config == null || currentState != VMState.STOPPED) return;
+        runOnPool(() -> {
+            try {
+                var disks = config.item.opt("disks", DataItem.newArray());
+                var diskStore = new DiskStore();
+                if (!diskStore.load(this))
+                    throw new IllegalStateException("Disk registry is unavailable");
+
+                cn.classfun.droidvm.lib.store.disk.DiskConfig target = null;
+                for (int i = 0; i < disks.size(); i++) {
+                    var item = disks.get(i);
+                    if (item.optBoolean("readonly", false)) continue;
+                    var path = item.optString("path", "");
+                    if (path.isEmpty()) continue;
+                    target = diskStore.findByPath(path);
+                    if (target != null) break;
+                }
+                if (target == null)
+                    throw new IllegalStateException("No writable registered Linux disk is attached");
+
+                var payloadDir = DroidBridgeGuestTools.preparePayloadDir(this);
+                var agent = AgentVM.forTarget(config);
+                agent.setOperationConsole("uart", "/dev/ttyAMA0");
+                agent.addSharedDir(
+                    DroidBridgeGuestTools.SHARE_TAG, payloadDir.getAbsolutePath());
+                agent.addDisk(target);
+                new DroidBridgeInstallAction(agent);
+
+                var intent = AgentOperationActivity.createIntent(this, agent);
+                intent.putExtra(AgentOperationActivity.EXTRA_AUTOFINISH_ON_SUCCESS, true);
+                mainHandler.post(() -> droidBridgeResultLauncher.launch(intent));
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to prepare DroidBridge provisioning", e);
+                mainHandler.post(() -> Toast.makeText(
+                    this,
+                    getString(R.string.droidbridge_provision_failed, e.getMessage()),
+                    LENGTH_LONG
+                ).show());
+            }
+        });
     }
 
     private void doDelete() {

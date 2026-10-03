@@ -201,6 +201,10 @@
     <string name="create_vm_pmu">PMU (性能监视器)</string>
     <string name="create_vm_rng">RNG (随机数生成器)</string>
     <string name="create_vm_smt">SMT (同步多线程)</string>
+    <string name="create_vm_droidbridge">DroidBridge（Linux 应用）</string>
+    <string name="droidbridge_provision_action">安装 / 修复 DroidBridge</string>
+    <string name="droidbridge_provision_success">DroidBridge 已就绪，可用于 Linux 应用。</string>
+    <string name="droidbridge_provision_failed">无法准备 DroidBridge：%1$s</string>
     <string name="create_vm_debug">调试追踪</string>
     <string name="create_vm_protected_vm">保护模式</string>
     <string name="create_vm_swiotlb_hint">SWIOTLB 大小（保护模式）</string>
@@ -845,6 +849,7 @@
     <string name="agent_operation_partial">操作已完成，但部分步骤失败：\n%1$s</string>
     <string name="agent_operation_action_password">更改密码</string>
     <string name="agent_operation_action_autogrow">文件系统扩容</string>
+    <string name="agent_operation_action_droidbridge">安装 DroidBridge</string>
     <string name="agent_operation_failed">操作失败（退出码 %1$d）。</string>
     <string name="agent_operation_failed_detail">操作失败：%1$s</string>
     <string name="agent_operation_prepare_failed">准备代理虚拟机失败。</string>
@@ -877,6 +882,11 @@
     <string name="agent_operation_error_filesystem_mount">无法挂载文件系统以进行扩展。</string>
     <string name="agent_operation_error_filesystem_grow">分区已扩大，但文件系统扩展失败。</string>
     <string name="agent_operation_error_filesystem_unmount">文件系统已扩展，但无法安全卸载。</string>
+    <string name="agent_operation_error_droidbridge_root">未找到 Linux 根文件系统。</string>
+    <string name="agent_operation_error_droidbridge_mount">救援虚拟机无法挂载 DroidBridge 载荷。</string>
+    <string name="agent_operation_error_droidbridge_missing">此构建中缺少 DroidBridge 客体代理。</string>
+    <string name="agent_operation_error_droidbridge_install">无法安装 DroidBridge 客体代理。</string>
+    <string name="agent_operation_error_droidbridge_init">该 Linux 镜像使用的初始化系统暂未被 DroidBridge 支持。</string>
     <string name="agent_operation_error_unknown">救援错误：%1$s</string>
 
     <string name="disk_resize">调整大小</string>
@@ -1670,4 +1680,13 @@
     <string name="usb_devices_action_failed_title">设备没有移动</string>
     <string name="usb_devices_target_claimed">被其他程序占用</string>
     <string name="usb_devices_idle_kept">%1$s 留在主机：有驱动不肯卸载，要拔掉重插才会回到 Idle</string>
+    <string name="linux_apps_title">Linux 应用</string>
+    <string name="linux_apps_empty">尚未发现 Linux 应用。请启动已启用 DroidBridge 的 Linux 环境后刷新。</string>
+    <string name="linux_apps_launch">打开</string>
+    <string name="linux_apps_pin">添加到桌面</string>
+    <string name="linux_apps_pin_unavailable">当前桌面不支持固定快捷方式。</string>
+    <string name="linux_apps_vm">Linux 环境：%1$s</string>
+    <string name="linux_apps_detail">%1$s\nLinux 环境：%2$s</string>
+    <string name="linux_apps_refresh_none">没有找到正在运行且已启用 DroidBridge 的 Linux 环境。</string>
+    <string name="linux_apps_refresh_result">Linux 应用刷新完成：%1$d 个已更新，%2$d 个失败。</string>
 </resources>

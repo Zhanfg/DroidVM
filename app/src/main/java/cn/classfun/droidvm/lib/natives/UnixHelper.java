@@ -66,6 +66,13 @@ public final class UnixHelper {
     public static native int nativeWrite(int fd, @NonNull byte[] buf, int len);
 
     /**
+     * Connects to a guest virtio-vsock endpoint. Returns a connected fd, or a negative errno.
+     * The timeout covers the non-blocking connect handshake so a missing guest agent cannot hang
+     * the privileged daemon.
+     */
+    public static native int nativeVsockConnect(int cid, int port, int timeoutMs);
+
+    /**
      * Opens an evdev node ({@code /dev/input/eventN}) read-write, falling back to read-only, or
      * -1. Read and write it with {@link #nativeRead} / {@link #nativeWrite}: the records are
      * 24-byte {@code struct input_event}s on this ABI.

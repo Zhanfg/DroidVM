@@ -205,6 +205,10 @@
     <string name="create_vm_pmu">PMU (Performance Monitor Unit)</string>
     <string name="create_vm_rng">RNG (Random Number Generator)</string>
     <string name="create_vm_smt">SMT (Simultaneous MultiThread)</string>
+    <string name="create_vm_droidbridge">DroidBridge (Linux apps)</string>
+    <string name="droidbridge_provision_action">Install / repair DroidBridge</string>
+    <string name="droidbridge_provision_success">DroidBridge is ready for Linux apps.</string>
+    <string name="droidbridge_provision_failed">Could not prepare DroidBridge: %1$s</string>
     <string name="create_vm_debug">Debug trace</string>
     <string name="create_vm_protected_vm">Protected VM</string>
     <string name="create_vm_swiotlb_hint">SWIOTLB Size (Protected VM)</string>
@@ -883,6 +887,7 @@
     <string name="agent_operation_partial">Operation completed, but some steps failed:\n%1$s</string>
     <string name="agent_operation_action_password">Password change</string>
     <string name="agent_operation_action_autogrow">Filesystem expansion</string>
+    <string name="agent_operation_action_droidbridge">DroidBridge installation</string>
     <string name="agent_operation_failed">Operation failed (exit code %1$d).</string>
     <string name="agent_operation_failed_detail">Operation failed: %1$s</string>
     <string name="agent_operation_prepare_failed">Failed to prepare agent VM.</string>
@@ -915,6 +920,11 @@
     <string name="agent_operation_error_filesystem_mount">The filesystem could not be mounted for resizing.</string>
     <string name="agent_operation_error_filesystem_grow">The partition was enlarged, but growing its filesystem failed.</string>
     <string name="agent_operation_error_filesystem_unmount">The filesystem was grown, but it could not be unmounted safely.</string>
+    <string name="agent_operation_error_droidbridge_root">The Linux root filesystem could not be found.</string>
+    <string name="agent_operation_error_droidbridge_mount">The DroidBridge payload could not be mounted in the rescue VM.</string>
+    <string name="agent_operation_error_droidbridge_missing">The DroidBridge guest agent is missing from this build.</string>
+    <string name="agent_operation_error_droidbridge_install">The DroidBridge guest agent could not be installed.</string>
+    <string name="agent_operation_error_droidbridge_init">This Linux image uses an init system DroidBridge does not support yet.</string>
     <string name="agent_operation_error_unknown">Rescue error: %1$s</string>
 
     <string name="disk_resize">Resize</string>
@@ -1728,4 +1738,13 @@
     <!-- U+1F512, as an entity: the base file stays ASCII (scripts/ci/check_ascii.py). -->
     <string name="usb_devices_locked_fmt" translatable="false">&#128274; %1$s</string>
     <string name="usb_devices_idle_kept">%1$s stays with the host: a driver of its would not let go, so it goes idle only when it is unplugged</string>
+    <string name="linux_apps_title">Linux apps</string>
+    <string name="linux_apps_empty">No Linux applications have been discovered yet. Start a DroidBridge-enabled Linux environment and refresh.</string>
+    <string name="linux_apps_launch">Open</string>
+    <string name="linux_apps_pin">Add to Home screen</string>
+    <string name="linux_apps_pin_unavailable">This launcher does not support pinned shortcuts.</string>
+    <string name="linux_apps_vm">Linux environment: %1$s</string>
+    <string name="linux_apps_detail">%1$s\nLinux environment: %2$s</string>
+    <string name="linux_apps_refresh_none">No running DroidBridge-enabled Linux environment was found.</string>
+    <string name="linux_apps_refresh_result">Linux app refresh complete: %1$d updated, %2$d failed.</string>
 </resources>

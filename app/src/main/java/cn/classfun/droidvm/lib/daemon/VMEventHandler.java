@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.UUID;
 
 import cn.classfun.droidvm.R;
+import cn.classfun.droidvm.linuxapps.LinuxAppSyncCoordinator;
 import cn.classfun.droidvm.lib.data.CrosvmExit;
 import cn.classfun.droidvm.lib.diag.LogHelper;
 import cn.classfun.droidvm.lib.store.vm.VMState;
@@ -188,6 +189,8 @@ public final class VMEventHandler implements
         mainHandler.post(() -> {
             for (var c : foregroundCallback.values())
                 c.onVMStateChanged(vmId, state);
+            if (state == VMState.RUNNING)
+                LinuxAppSyncCoordinator.onVmRunning(appContext, vmId);
             if (event.equals("exited")) {
                 int exitCode = data.optInt("exit_code", -1);
                 if (foregroundCallback.isEmpty() || !isAppInForeground())

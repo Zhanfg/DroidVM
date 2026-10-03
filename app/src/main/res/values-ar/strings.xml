@@ -206,6 +206,10 @@
     <string name="create_vm_pmu">وحدة مراقبة الأداء (PMU)</string>
     <string name="create_vm_rng">مولّد الأرقام العشوائية (RNG)</string>
     <string name="create_vm_smt">تعدد خيوط المعالجة المتزامن (SMT)</string>
+    <string name="create_vm_droidbridge">DroidBridge (تطبيقات Linux)</string>
+    <string name="droidbridge_provision_action">تثبيت / إصلاح DroidBridge</string>
+    <string name="droidbridge_provision_success">DroidBridge جاهز لتطبيقات Linux.</string>
+    <string name="droidbridge_provision_failed">تعذر إعداد DroidBridge: %1$s</string>
     <string name="create_vm_debug">تتبع تصحيح الأخطاء (Debug trace)</string>
     <string name="create_vm_protected_vm">جهاز افتراضي محمي (Protected VM)</string>
     <string name="create_vm_swiotlb_hint">حجم SWIOTLB (للأجهزة الافتراضية المحمية)</string>
@@ -888,6 +892,7 @@
     <string name="agent_operation_partial">اكتملت العملية، ولكن بعض الخطوات فشلت:\n%1$s</string>
     <string name="agent_operation_action_password">تغيير كلمة المرور</string>
     <string name="agent_operation_action_autogrow">توسيع نظام الملفات</string>
+    <string name="agent_operation_action_droidbridge">تثبيت DroidBridge</string>
     <string name="agent_operation_failed">فشلت العملية (رمز الخروج %1$d).</string>
     <string name="agent_operation_failed_detail">فشلت العملية: %1$s</string>
     <string name="agent_operation_prepare_failed">فشل تحضير جهاز الوكيل الافتراضي (Agent VM).</string>
@@ -920,6 +925,11 @@
     <string name="agent_operation_error_filesystem_mount">تعذر تثبيت (Mount) نظام الملفات لتغيير حجمه.</string>
     <string name="agent_operation_error_filesystem_grow">تم توسيع حجم القسم، ولكن فشل توسيع نظام الملفات بداخله.</string>
     <string name="agent_operation_error_filesystem_unmount">تمت زيادة حجم نظام الملفات، لكن تعذر إلغاء تثبيته (Unmount) بأمان.</string>
+    <string name="agent_operation_error_droidbridge_root">تعذر العثور على نظام ملفات جذر Linux.</string>
+    <string name="agent_operation_error_droidbridge_mount">تعذر تركيب حمولة DroidBridge داخل جهاز الإنقاذ الافتراضي.</string>
+    <string name="agent_operation_error_droidbridge_missing">وكيل DroidBridge الخاص بالضيف غير موجود في هذا البناء.</string>
+    <string name="agent_operation_error_droidbridge_install">تعذر تثبيت وكيل DroidBridge الخاص بالضيف.</string>
+    <string name="agent_operation_error_droidbridge_init">صورة Linux هذه تستخدم نظام تهيئة غير مدعوم حالياً بواسطة DroidBridge.</string>
     <string name="agent_operation_error_unknown">خطأ في الإنقاذ: %1$s</string>
 
     <string name="disk_resize">تغيير الحجم</string>
@@ -1734,4 +1744,13 @@
     <!-- U+1F512, as an entity: the base file stays ASCII (scripts/ci/check_ascii.py). -->
     <string name="usb_devices_locked_fmt" translatable="false">&#128274; %1$s</string>
     <string name="usb_devices_idle_kept">يبقى %1$s مع المضيف: تعذر على أحد برامج التشغيل تحريره، لذا لن يتحول إلى خامل إلا عند فصله</string>
+    <string name="linux_apps_title">تطبيقات Linux</string>
+    <string name="linux_apps_empty">لم يتم اكتشاف تطبيقات Linux بعد. شغّل بيئة Linux مفعّل فيها DroidBridge ثم حدّث القائمة.</string>
+    <string name="linux_apps_launch">فتح</string>
+    <string name="linux_apps_pin">إضافة إلى الشاشة الرئيسية</string>
+    <string name="linux_apps_pin_unavailable">المشغّل الحالي لا يدعم الاختصارات المثبتة.</string>
+    <string name="linux_apps_vm">بيئة Linux: %1$s</string>
+    <string name="linux_apps_detail">%1$s\nبيئة Linux: %2$s</string>
+    <string name="linux_apps_refresh_none">لم يتم العثور على بيئة Linux قيد التشغيل ومفعّل فيها DroidBridge.</string>
+    <string name="linux_apps_refresh_result">اكتمل تحديث تطبيقات Linux: تم تحديث %1$d وفشل %2$d.</string>
 </resources>

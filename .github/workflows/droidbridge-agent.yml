@@ -1,0 +1,49 @@
+name: DroidBridge Agent
+
+on:
+  push:
+    paths:
+      - "tools/droidbridge-agent/**"
+      - ".github/workflows/droidbridge-agent.yml"
+  pull_request:
+    paths:
+      - "tools/droidbridge-agent/**"
+      - ".github/workflows/droidbridge-agent.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run unit tests
+        run: cargo test --manifest-path tools/droidbridge-agent/Cargo.toml
+
+  build-aarch64-musl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add static aarch64 target
+        run: rustup target add aarch64-unknown-linux-musl
+      - name: Locate rust-lld
+        shell: bash
+        run: |
+          sysroot="$(rustc --print sysroot)"
+          linker="$sysroot/lib/rustlib/$(rustc -vV | sed -n 's/^host: //p')/bin/rust-lld"
+          test -x "$linker"
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=$linker" >> "$GITHUB_ENV"
+      - name: Build static guest agent
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static"
+        run: cargo build --manifest-path tools/droidbridge-agent/Cargo.toml --release --target aarch64-unknown-linux-musl
+      - name: Verify ELF
+        run: |
+          file tools/droidbridge-agent/target/aarch64-unknown-linux-musl/release/droidbridge-agent
+          readelf -h tools/droidbridge-agent/target/aarch64-unknown-linux-musl/release/droidbridge-agent | grep -E 'Class:|Machine:'
+      - name: Upload guest agent
+        uses: actions/upload-artifact@v4
+        with:
+          name: droidbridge-agent-aarch64
+          path: tools/droidbridge-agent/target/aarch64-unknown-linux-musl/release/droidbridge-agent
+          if-no-files-found: error

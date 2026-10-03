@@ -54,6 +54,7 @@ import cn.classfun.droidvm.lib.store.disk.DiskStore;
 import cn.classfun.droidvm.lib.ui.termux.SimpleTerminalSessionClient;
 import cn.classfun.droidvm.lib.ui.termux.TerminalPanelView;
 import cn.classfun.droidvm.ui.agent.autogrow.AutoGrowAction;
+import cn.classfun.droidvm.ui.agent.droidbridge.DroidBridgeInstallAction;
 import cn.classfun.droidvm.ui.agent.base.AgentPayloadChunks;
 import cn.classfun.droidvm.ui.agent.base.AgentVM;
 import cn.classfun.droidvm.ui.agent.base.BaseAction;
@@ -235,7 +236,7 @@ public final class AgentOperationActivity extends AppCompatActivity
         if (stream == null) return;
         runOnPool(() -> {
             for (int i = 0; i < 50 && !closing && !vmExited; i++) {
-                if (isOperationConsoleReadable(stream)) {
+                if (isAgentVmRunning() && isOperationConsoleReadable(stream)) {
                     runOnUiThread(() -> {
                         if (!closing && !vmExited && terminalSession == null)
                             startConsoleSession(stream);
@@ -247,6 +248,20 @@ public final class AgentOperationActivity extends AppCompatActivity
             if (!closing && !vmExited)
                 Log.w(TAG, "Operation console did not become readable");
         });
+    }
+
+    private boolean isAgentVmRunning() {
+        try {
+            var statusReq = new JSONObject();
+            statusReq.put("command", "vm_status");
+            statusReq.put("vm_id", vmId);
+            var status = DaemonConnection.getInstance().request(statusReq);
+            return status.optBoolean("success", false)
+                && "running".equalsIgnoreCase(status.optString("state", ""));
+        } catch (Exception e) {
+            if (!closing && !vmExited) Log.d(TAG, "Agent VM is not running yet", e);
+        }
+        return false;
     }
 
     private boolean isOperationConsoleReadable(@NonNull String stream) {
@@ -603,6 +618,16 @@ public final class AgentOperationActivity extends AppCompatActivity
                 return getString(R.string.agent_operation_error_filesystem_grow);
             case "FILESYSTEM_UNMOUNT_FAILED":
                 return getString(R.string.agent_operation_error_filesystem_unmount);
+            case "DROIDBRIDGE_ROOT_NOT_FOUND":
+                return getString(R.string.agent_operation_error_droidbridge_root);
+            case "DROIDBRIDGE_PAYLOAD_MOUNT_FAILED":
+                return getString(R.string.agent_operation_error_droidbridge_mount);
+            case "DROIDBRIDGE_PAYLOAD_MISSING":
+                return getString(R.string.agent_operation_error_droidbridge_missing);
+            case "DROIDBRIDGE_INSTALL_FAILED":
+                return getString(R.string.agent_operation_error_droidbridge_install);
+            case "DROIDBRIDGE_INIT_UNSUPPORTED":
+                return getString(R.string.agent_operation_error_droidbridge_init);
             default:
                 return getString(R.string.agent_operation_error_unknown, code);
         }
@@ -666,6 +691,8 @@ public final class AgentOperationActivity extends AppCompatActivity
                 return getString(R.string.agent_operation_action_password);
             case AutoGrowAction.TYPE:
                 return getString(R.string.agent_operation_action_autogrow);
+            case DroidBridgeInstallAction.TYPE:
+                return getString(R.string.agent_operation_action_droidbridge);
             default:
                 return type;
         }

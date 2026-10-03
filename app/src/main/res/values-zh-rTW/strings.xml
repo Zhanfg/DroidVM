@@ -201,6 +201,10 @@
     <string name="create_vm_pmu">PMU (效能監視器)</string>
     <string name="create_vm_rng">RNG (隨機數生成器)</string>
     <string name="create_vm_smt">SMT (同步多執行緒)</string>
+    <string name="create_vm_droidbridge">DroidBridge（Linux 應用程式）</string>
+    <string name="droidbridge_provision_action">安裝 / 修復 DroidBridge</string>
+    <string name="droidbridge_provision_success">DroidBridge 已就緒，可用於 Linux 應用程式。</string>
+    <string name="droidbridge_provision_failed">無法準備 DroidBridge：%1$s</string>
     <string name="create_vm_debug">除錯追蹤</string>
     <string name="create_vm_protected_vm">保護模式</string>
     <string name="create_vm_swiotlb_hint">SWIOTLB 大小（保護模式）</string>
@@ -845,6 +849,7 @@
     <string name="agent_operation_partial">操作已完成，但部分步驟失敗：\n%1$s</string>
     <string name="agent_operation_action_password">變更密碼</string>
     <string name="agent_operation_action_autogrow">檔案系統擴充</string>
+    <string name="agent_operation_action_droidbridge">安裝 DroidBridge</string>
     <string name="agent_operation_failed">操作失敗（退出碼 %1$d）。</string>
     <string name="agent_operation_failed_detail">操作失敗：%1$s</string>
     <string name="agent_operation_prepare_failed">準備代理虛擬機器失敗。</string>
@@ -877,6 +882,11 @@
     <string name="agent_operation_error_filesystem_mount">無法掛載檔案系統以進行擴充。</string>
     <string name="agent_operation_error_filesystem_grow">分割區已擴大，但檔案系統擴充失敗。</string>
     <string name="agent_operation_error_filesystem_unmount">檔案系統已擴充，但無法安全卸載。</string>
+    <string name="agent_operation_error_droidbridge_root">找不到 Linux 根檔案系統。</string>
+    <string name="agent_operation_error_droidbridge_mount">救援虛擬機器無法掛載 DroidBridge 載荷。</string>
+    <string name="agent_operation_error_droidbridge_missing">此建置中缺少 DroidBridge 客體代理。</string>
+    <string name="agent_operation_error_droidbridge_install">無法安裝 DroidBridge 客體代理。</string>
+    <string name="agent_operation_error_droidbridge_init">此 Linux 映像使用的初始化系統目前尚未受 DroidBridge 支援。</string>
     <string name="agent_operation_error_unknown">救援錯誤：%1$s</string>
 
     <string name="disk_resize">調整大小</string>
@@ -1670,4 +1680,13 @@
     <string name="usb_devices_action_failed_title">裝置沒有移動</string>
     <string name="usb_devices_target_claimed">被其他程式占用</string>
     <string name="usb_devices_idle_kept">%1$s 留在主機：有驅動不肯卸載，要拔掉重插才會回到 Idle</string>
+    <string name="linux_apps_title">Linux 應用程式</string>
+    <string name="linux_apps_empty">尚未發現 Linux 應用程式。請啟動已啟用 DroidBridge 的 Linux 環境後重新整理。</string>
+    <string name="linux_apps_launch">開啟</string>
+    <string name="linux_apps_pin">加入主畫面</string>
+    <string name="linux_apps_pin_unavailable">目前的桌面不支援固定捷徑。</string>
+    <string name="linux_apps_vm">Linux 環境：%1$s</string>
+    <string name="linux_apps_detail">%1$s\nLinux 環境：%2$s</string>
+    <string name="linux_apps_refresh_none">找不到正在執行且已啟用 DroidBridge 的 Linux 環境。</string>
+    <string name="linux_apps_refresh_result">Linux 應用程式重新整理完成：%1$d 個已更新，%2$d 個失敗。</string>
 </resources>

@@ -9,6 +9,7 @@
 #include <sys/un.h>
 #include <linux/netlink.h>
 #include <linux/input.h>
+#include <linux/vm_sockets.h>
 #include <sys/ioctl.h>
 #include <android/log.h>
 #include <android/log.h>
@@ -309,6 +310,90 @@ JNI_PREFIX(nativeWrite)(
     } while (n < 0 && errno == EINTR);
     (*env)->ReleaseByteArrayElements(env, buf, bytes, JNI_ABORT);
     return (jint) n;
+}
+
+
+/*
+ * AF_VSOCK connect with a hard timeout. The daemon uses this for one-shot DroidBridge RPCs:
+ * no background poll loop and no timer wakeups when no Linux app is active.
+ *
+ * Returns a connected fd or -errno. CID/port are kept in the signed-int range by the Java
+ * configuration layer, so no narrowing ambiguity reaches sockaddr_vm.
+ */
+JNIEXPORT jint JNICALL
+JNI_PREFIX(nativeVsockConnect)(
+    JNIEnv *env, jclass clazz, jint cid, jint port, jint timeoutMs
+) {
+    (void) env;
+    (void) clazz;
+    if (cid < 3 || port <= 0 || timeoutMs < 0) return -EINVAL;
+
+    int fd = socket(AF_VSOCK, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) return -errno;
+
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0) {
+        int err = errno;
+        close(fd);
+        return -err;
+    }
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+        int err = errno;
+        close(fd);
+        return -err;
+    }
+
+    struct sockaddr_vm addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.svm_family = AF_VSOCK;
+    addr.svm_cid = (unsigned int) cid;
+    addr.svm_port = (unsigned int) port;
+
+    int rc = connect(fd, (struct sockaddr *) &addr, sizeof(addr));
+    if (rc < 0 && errno != EINPROGRESS) {
+        int err = errno;
+        close(fd);
+        return -err;
+    }
+
+    if (rc < 0) {
+        struct pollfd pfd;
+        memset(&pfd, 0, sizeof(pfd));
+        pfd.fd = fd;
+        pfd.events = POLLOUT;
+        do {
+            rc = poll(&pfd, 1, timeoutMs);
+        } while (rc < 0 && errno == EINTR);
+
+        if (rc == 0) {
+            close(fd);
+            return -ETIMEDOUT;
+        }
+        if (rc < 0) {
+            int err = errno;
+            close(fd);
+            return -err;
+        }
+
+        int so_error = 0;
+        socklen_t len = sizeof(so_error);
+        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len) < 0) {
+            int err = errno;
+            close(fd);
+            return -err;
+        }
+        if (so_error != 0) {
+            close(fd);
+            return -so_error;
+        }
+    }
+
+    if (fcntl(fd, F_SETFL, flags) < 0) {
+        int err = errno;
+        close(fd);
+        return -err;
+    }
+    return fd;
 }
 
 JNIEXPORT jint JNICALL

@@ -30,6 +30,9 @@ import cn.classfun.droidvm.lib.store.disk.DiskConfig;
 import cn.classfun.droidvm.lib.store.disk.DiskStore;
 import cn.classfun.droidvm.lib.store.vm.BootConfig;
 import cn.classfun.droidvm.lib.store.vm.LendMthpMode;
+import cn.classfun.droidvm.lib.store.vm.ProtectedVM;
+import cn.classfun.droidvm.lib.store.vm.SharedDirCache;
+import cn.classfun.droidvm.lib.store.vm.SharedDirType;
 import cn.classfun.droidvm.lib.store.vm.VMBackend;
 import cn.classfun.droidvm.lib.store.vm.VMConfig;
 import cn.classfun.droidvm.lib.store.vm.VMHypervisor;
@@ -43,6 +46,7 @@ public final class AgentVM implements JSONSerialize {
     private List<DiskConfig> disks = new ArrayList<>();
     private List<AgentActionSpec> actions = new ArrayList<>();
     private Map<String, String> vars = new HashMap<>();
+    private Map<String, String> sharedDirs = new HashMap<>();
     private String randomId = null;
     private String operationConsoleStream = null;
     private String operationConsoleDevice = null;
@@ -59,6 +63,33 @@ public final class AgentVM implements JSONSerialize {
     ) {
         this.backend = backend;
         this.hypervisor = hypervisor;
+    }
+
+    /**
+     * Chooses a maintenance backend that follows the target VM when its hardware path is already
+     * known-good. In particular, PJZ110/SM8750 guests use crosvm+Gunyah instead of falling back
+     * to an unrelated QEMU/TCG path just for maintenance.
+     */
+    @NonNull
+    public static AgentVM forTarget(@NonNull VMConfig target) {
+        var backendName = target.item.optString("backend", VMBackend.DEFAULT.name());
+        var hypervisorName = target.item.optString("hypervisor", VMHypervisor.AUTO.name());
+        VMBackend targetBackend;
+        VMHypervisor targetHypervisor;
+        try {
+            targetBackend = VMBackend.valueOf(backendName.toUpperCase(Locale.ROOT));
+        } catch (Exception e) {
+            targetBackend = VMBackend.DEFAULT;
+        }
+        try {
+            targetHypervisor = VMHypervisor.valueOf(hypervisorName.toUpperCase(Locale.ROOT));
+        } catch (Exception e) {
+            targetHypervisor = VMHypervisor.AUTO;
+        }
+        targetHypervisor = VMHypervisor.resolveConfigured(targetBackend, targetHypervisor);
+        if (targetBackend == VMBackend.CROSVM && targetHypervisor == VMHypervisor.GUNYAH)
+            return new AgentVM(VMBackend.CROSVM, VMHypervisor.GUNYAH);
+        return new AgentVM(VMBackend.QEMU, VMHypervisor.SOFT);
     }
 
     public AgentVM(@NonNull DiskStore store, @NonNull JSONObject jo) throws JSONException {
@@ -81,6 +112,8 @@ public final class AgentVM implements JSONSerialize {
             jo, "actions", v -> new AgentActionSpec((JSONObject) v));
         if (jo.has("vars"))
             this.vars = JsonUtils.objectToStringMap(jo, "vars");
+        if (jo.has("shared_dirs"))
+            this.sharedDirs = JsonUtils.objectToStringMap(jo, "shared_dirs");
         var operationConsole = jo.optJSONObject("operation_console");
         if (operationConsole != null)
             setOperationConsole(
@@ -109,6 +142,10 @@ public final class AgentVM implements JSONSerialize {
         for (var entry : vars.entrySet())
             varsObj.put(entry.getKey(), entry.getValue());
         jo.put("vars", varsObj);
+        var sharedDirsObj = new JSONObject();
+        for (var entry : sharedDirs.entrySet())
+            sharedDirsObj.put(entry.getKey(), entry.getValue());
+        jo.put("shared_dirs", sharedDirsObj);
         if (operationConsoleStream != null && operationConsoleDevice != null) {
             var operationConsole = new JSONObject();
             operationConsole.put("stream", operationConsoleStream);
@@ -137,6 +174,17 @@ public final class AgentVM implements JSONSerialize {
 
     public void addDisk(@NonNull DiskConfig disk) {
         disks.add(disk);
+    }
+
+    /**
+     * Adds one host directory as a read-mostly virtio-fs payload source for rescue actions.
+     */
+    public void addSharedDir(@NonNull String tag, @NonNull String path) {
+        if (!CONSOLE_STREAM_PATTERN.matcher(tag).matches())
+            throw new IllegalArgumentException("Invalid shared directory tag");
+        if (!path.startsWith("/"))
+            throw new IllegalArgumentException("Shared directory path must be absolute");
+        sharedDirs.put(tag, path);
     }
 
     /** Appends an operation; list order is execution order inside the same rescue VM. */
@@ -204,14 +252,21 @@ public final class AgentVM implements JSONSerialize {
         vm.item.set("cpu_count", 1);
         // The existing general-purpose initramfs expands to roughly 113 MiB. 320 MiB is the
         // measured reliable floor on TCG while keeping a useful margin for filesystem modules.
-        vm.item.set("memory_mb", 320);
-        vm.item.set("hugepages", false);
+        var gunyahMaintenance =
+            backend == VMBackend.CROSVM && hypervisor == VMHypervisor.GUNYAH;
+        vm.item.set("memory_mb", gunyahMaintenance ? 512 : 320);
+        vm.item.set("hugepages", gunyahMaintenance);
         vm.item.set("rng", false);
         vm.item.set("balloon", false);
         // And no peripherals at all, which is how a VM says it has no USB: an agent VM boots an
         // initramfs over a serial console and has nothing to pass through.
         vm.item.set("audio_enabled", false);
-        vm.item.set(LendMthpMode.KEY, LendMthpMode.DISABLED);
+        vm.item.set(
+            LendMthpMode.KEY,
+            gunyahMaintenance ? LendMthpMode.CHUNKED : LendMthpMode.DISABLED
+        );
+        if (gunyahMaintenance)
+            vm.item.set("protected_vm", ProtectedVM.PSEUDO_UNPROTECTED);
         var boot = BootConfig.of(vm);
         boot.setProtocol(BootConfig.Protocol.LINUX);
         boot.setLinuxSource(BootConfig.LinuxSource.MANUAL);
@@ -229,6 +284,20 @@ public final class AgentVM implements JSONSerialize {
             diskItems.append(item);
         }
         vm.item.set("disks", diskItems);
+        var sharedItems = DataItem.newArray();
+        for (var entry : sharedDirs.entrySet()) {
+            var item = DataItem.newObject();
+            item.set("path", entry.getValue());
+            item.set("tag", entry.getKey());
+            item.set("type", SharedDirType.FS);
+            item.set("cache", SharedDirCache.NEVER);
+            item.set("writeback", false);
+            item.set("readonly", true);
+            item.set("posix_acl", false);
+            item.set("root_access", false);
+            sharedItems.append(item);
+        }
+        vm.item.set("shared_dirs", sharedItems);
         vm.item.set("networks", DataItem.newArray());
         return vm;
     }

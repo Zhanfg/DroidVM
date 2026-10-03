@@ -145,6 +145,29 @@ android {
     }
 }
 
+abstract class CopyDroidBridgeGuestToolsTask : DefaultTask() {
+    @get:InputFile
+    @get:Optional
+    abstract val guestAgent: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val outDir = outputDir.get().asFile
+        outDir.deleteRecursively()
+        val src = guestAgent.orNull?.asFile
+        if (src == null || !src.isFile) {
+            logger.warn("DroidBridge guest agent was not built; seamless Linux apps will be unavailable")
+            return
+        }
+        val dst = File(outDir, "droidbridge/arm64-v8a/droidbridge-agent")
+        dst.parentFile.mkdirs()
+        src.copyTo(dst, overwrite = true)
+    }
+}
+
 abstract class CopyNativeBinAssetsTask : DefaultTask() {
     @get:InputDirectory
     abstract val cmakeOutputDir: DirectoryProperty
@@ -370,6 +393,24 @@ androidComponents {
         }
         variant.sources.assets?.addGeneratedSourceDirectory(
             copyNativeTask, CopyNativeBinAssetsTask::outputDir
+        )
+        val copyDroidBridgeTask = tasks.register<CopyDroidBridgeGuestToolsTask>(
+            "copyDroidBridgeGuestTools${variantName}"
+        ) {
+            description = "Package the static arm64 DroidBridge guest agent for ${variant.name}"
+            guestAgent.set(
+                rootProject.layout.projectDirectory.file(
+                    "tools/droidbridge-agent/target/aarch64-unknown-linux-musl/release/droidbridge-agent"
+                )
+            )
+            outputDir.set(
+                layout.buildDirectory.dir(
+                    "generated/droidbridge_assets/${variant.name}"
+                )
+            )
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            copyDroidBridgeTask, CopyDroidBridgeGuestToolsTask::outputDir
         )
     }
 }
