@@ -236,7 +236,7 @@ public final class AgentOperationActivity extends AppCompatActivity
         if (stream == null) return;
         runOnPool(() -> {
             for (int i = 0; i < 50 && !closing && !vmExited; i++) {
-                if (isOperationConsoleReadable(stream)) {
+                if (isAgentVmRunning() && isOperationConsoleReadable(stream)) {
                     runOnUiThread(() -> {
                         if (!closing && !vmExited && terminalSession == null)
                             startConsoleSession(stream);
@@ -248,6 +248,20 @@ public final class AgentOperationActivity extends AppCompatActivity
             if (!closing && !vmExited)
                 Log.w(TAG, "Operation console did not become readable");
         });
+    }
+
+    private boolean isAgentVmRunning() {
+        try {
+            var statusReq = new JSONObject();
+            statusReq.put("command", "vm_status");
+            statusReq.put("vm_id", vmId);
+            var status = DaemonConnection.getInstance().request(statusReq);
+            return status.optBoolean("success", false)
+                && "running".equalsIgnoreCase(status.optString("state", ""));
+        } catch (Exception e) {
+            if (!closing && !vmExited) Log.d(TAG, "Agent VM is not running yet", e);
+        }
+        return false;
     }
 
     private boolean isOperationConsoleReadable(@NonNull String stream) {
