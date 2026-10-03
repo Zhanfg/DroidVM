@@ -527,7 +527,7 @@ public final class VMInfoActivity extends AppCompatActivity implements Foregroun
                     throw new IllegalStateException("No writable registered Linux disk is attached");
 
                 var payloadDir = DroidBridgeGuestTools.preparePayloadDir(this);
-                var agent = new AgentVM(VMBackend.QEMU, VMHypervisor.SOFT);
+                var agent = AgentVM.forTarget(config);
                 agent.setOperationConsole("uart", "/dev/ttyAMA0");
                 agent.addSharedDir(
                     DroidBridgeGuestTools.SHARE_TAG, payloadDir.getAbsolutePath());
